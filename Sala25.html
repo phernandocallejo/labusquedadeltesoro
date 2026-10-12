@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>La Búsqueda del Tesoro - Sala 25</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1a1a2e;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            height: 100vh;
+            margin: 0;
+            padding: 5px;
+            box-sizing: border-box;
+            text-align: center;
+            overflow: hidden;
+            touch-action: none;
+            position: relative;
+        }
+        h1 {
+            font-size: 1.1rem;
+            margin: 2px 0;
+            z-index: 2;
+        }
+        #hud {
+            font-size: 0.9rem;
+            color: #f1c40f;
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            max-width: 400px;
+            padding: 0 10px;
+            box-sizing: border-box;
+            z-index: 2;
+            font-weight: bold;
+        }
+        .overlay-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(26, 26, 46, 0.98);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            box-sizing: border-box;
+            z-index: 20;
+        }
+        .card {
+            background: white;
+            color: #333;
+            padding: 30px;
+            border-radius: 12px;
+            max-width: 400px;
+            width: 100%;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+        }
+        .card h2 {
+            color: #2c3e50;
+            margin-top: 0;
+        }
+        .card p {
+            font-size: 1.1rem;
+            line-height: 1.5;
+            color: #555;
+        }
+        input[type="text"] {
+            width: 80%;
+            padding: 12px;
+            font-size: 1.1rem;
+            margin-top: 15px;
+            border: 2px solid #ccc;
+            border-radius: 5px;
+            text-align: center;
+            box-sizing: border-box;
+        }
+        button.action-btn {
+            background-color: #e74c3c;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            font-size: 1.1rem;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 15px;
+            font-weight: bold;
+        }
+        button.action-btn:hover {
+            background-color: #c0392b;
+        }
+        #error-msg {
+            color: #e74c3c;
+            font-size: 0.95rem;
+            margin-top: 12px;
+            font-weight: bold;
+            display: none;
+        }
+        
+        /* Canvas de juego a pantalla completa */
+        #gameCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #0f0f1b;
+            z-index: 1;
+        }
+
+        /* Joystick virtual */
+        #joystick-base {
+            position: absolute;
+            bottom: 110px;
+            right: 30px;
+            width: 110px;
+            height: 110px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            z-index: 10;
+            touch-action: none;
+            display: none;
+        }
+        #joystick-stick {
+            position: absolute;
+            top: 25px;
+            left: 25px;
+            width: 60px;
+            height: 60px;
+            background: rgba(241, 196, 15, 0.6);
+            border: 3px solid #f1c40f;
+            border-radius: 50%;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Pantalla de Contraseña Inicial -->
+    <div id="password-screen" class="overlay-screen">
+        <div class="card">
+            <h2>Sala 25 🔒</h2>
+            <p>Bienvenido, carahuevo.<br>Introduce la contraseña para continuar:</p>
+            <input type="text" id="pass-input" placeholder="Escribe la clave..." autocomplete="off">
+            <br>
+            <button id="btn-entrar" class="action-btn" type="button">Entrar</button>
+            <div id="error-msg">Contraseña incorrecta, prueba otra vez.</div>
+        </div>
+    </div>
+
+    <!-- Pantalla de Inicio del Minijuego -->
+    <div id="start-screen" class="overlay-screen" style="display: none;">
+        <div class="card">
+            <h2>¡Desafío número 25! 🚀</h2>
+            <p>Pilota la nave con el joystick. <strong>Sobrevive 1 minuto</strong> esquivando asteroides (tienes 3 vidas).</p>
+            <button class="action-btn" onclick="comenzarPartida()">▶ Iniciar Vuelo</button>
+        </div>
+    </div>
+
+    <!-- HUD superior durante el juego -->
+    <div id="hud" style="display: none;">
+        <span id="lives-display">❤️❤️❤️ Vidas: 3</span>
+        <span id="time-display">⏱️ 01:00</span>
+    </div>
+
+    <!-- Lienzo del juego -->
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- Joystick Táctil -->
+    <div id="joystick-base">
+        <div id="joystick-stick"></div>
+    </div>
+
+    <!-- Pantalla de Victoria Final -->
+    <div id="win-message" class="overlay-screen" style="display: none;">
+        <div class="card">
+            <h2 style="color: #27ae60;">¡MISIÓN CUMPLIDA! 🎉</h2>
+            <p>¡Has sobrevivido al campo de asteroides!</p>
+            <p><strong>Pasa a la sala 35.</strong><br>Contraseña: <strong>marcianitos</strong></p>
+            <button type="button" class="action-btn" onclick="reiniciarJuego()">Volver a jugar</button>
+        </div>
+    </div>
+
+    <script>
+        const CONTRASEÑA_CORRECTA = "pendejo"; 
+
+        const passInput = document.getElementById('pass-input');
+        const btnEntrar = document.getElementById('btn-entrar');
+        const errorMsg = document.getElementById('error-msg');
+        const passwordScreen = document.getElementById('password-screen');
+        const startScreen = document.getElementById('start-screen');
+        const hud = document.getElementById('hud');
+
+        function comprobarClave() {
+            let valorEscrito = passInput.value.trim();
+            if (valorEscrito.toLowerCase() === CONTRASEÑA_CORRECTA.toLowerCase()) {
+                passwordScreen.style.display = 'none';
+                startScreen.style.display = 'flex';
+            } else {
+                errorMsg.style.display = 'block';
+                passInput.value = '';
+                passInput.focus();
+            }
+        }
+
+        btnEntrar.addEventListener('click', comprobarClave);
+        passInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                comprobarClave();
+            }
+        });
+
+        // Configuración del Canvas y del juego
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        function ajustarCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', ajustarCanvas);
+        ajustarCanvas();
+
+        let juegoActivo = false;
+        let vidas = 3;
+        let tiempoRestante = 60;
+        let timerInterval = null;
+        let asteroideInterval = null;
+
+        let nave = {
+            x: window.innerWidth / 2,
+            y: window.innerHeight - 150,
+            radio: 18,
+            velocidadMax: 4.2, // Velocidad máxima moderada
+            vx: 0,
+            vy: 0
+        };
+
+        let asteroides = [];
+        let invulnerable = false;
+
+        function comenzarPartida() {
+            startScreen.style.display = 'none';
+            hud.style.display = 'flex';
+            document.getElementById('joystick-base').style.display = 'block';
+            
+            vidas = 3;
+            tiempoRestante = 60;
+            asteroides = [];
+            actualizarHUD();
+
+            nave.x = canvas.width / 2;
+            nave.y = canvas.height - 150;
+            nave.vx = 0;
+            nave.vy = 0;
+
+            juegoActivo = true;
+            loopJuego();
+
+            timerInterval = setInterval(() => {
+                if (tiempoRestante > 0) {
+                    tiempoRestante--;
+                    actualizarHUD();
+                    if (tiempoRestante === 0) {
+                        finalizarVictoria();
+                    }
+                }
+            }, 1000);
+
+            asteroideInterval = setInterval(() => {
+                if (juegoActivo) crearAsteroide();
+            }, 650);
+        }
+
+        function actualizarHUD() {
+            document.getElementById('lives-display').innerText = `❤️❤️❤️ Vidas: ${vidas}`;
+            let mins = String(Math.floor(tiempoRestante / 60)).padStart(2, '0');
+            let secs = String(tiempoRestante % 60).padStart(2, '0');
+            document.getElementById('time-display').innerText = `⏱️ ${mins}:${secs}`;
+        }
+
+        function crearAsteroide() {
+            let radio = Math.random() * 14 + 12;
+            asteroides.push({
+                x: Math.random() * (canvas.width - 40) + 20,
+                y: -30,
+                vx: (Math.random() - 0.5) * 3,
+                vy: Math.random() * 2.5 + 2,
+                radio: radio
+            });
+        }
+
+        // Lógica del Joystick con zona muerta y suavizado (menos sensible)
+        const joystickBase = document.getElementById('joystick-base');
+        const joystickStick = document.getElementById('joystick-stick');
+        let joystickActive = false;
+        let joystickCenterX = 0;
+        let joystickCenterY = 0;
+        let maxDist = 35;
+        let targetVx = 0;
+        let targetVy = 0;
+
+        joystickBase.addEventListener('touchstart', (e) => {
+            joystickActive = true;
+            let rect = joystickBase.getBoundingClientRect();
+            joystickCenterX = rect.left + rect.width / 2;
+            joystickCenterY = rect.top + rect.height / 2;
+            moverJoystick(e.touches[0]);
+        });
+
+        joystickBase.addEventListener('touchmove', (e) => {
+            if (joystickActive) moverJoystick(e.touches[0]);
+        });
+
+        joystickBase.addEventListener('touchend', () => {
+            soltarJoystick();
+        });
+
+        joystickBase.addEventListener('mousedown', (e) => {
+            joystickActive = true;
+            let rect = joystickBase.getBoundingClientRect();
+            joystickCenterX = rect.left + rect.width / 2;
+            joystickCenterY = rect.top + rect.height / 2;
+            moverJoystick(e);
+        });
+        window.addEventListener('mousemove', (e) => {
+            if (joystickActive) moverJoystick(e);
+        });
+        window.addEventListener('mouseup', () => {
+            if (joystickActive) {
+                soltarJoystick();
+            }
+        });
+
+        function soltarJoystick() {
+            joystickActive = false;
+            joystickStick.style.transform = `translate(0px, 0px)`;
+            targetVx = 0;
+            targetVy = 0;
+        }
+
+        function moverJoystick(e) {
+            let clientX = e.clientX;
+            let clientY = e.clientY;
+            let dx = clientX - joystickCenterX;
+            let dy = clientY - joystickCenterY;
+            let dist = Math.sqrt(dx * dx + dy * dy);
+
+            if (dist > maxDist) {
+                dx = (dx / dist) * maxDist;
+                dy = (dy / dist) * maxDist;
+            }
+
+            joystickStick.style.transform = `translate(${dx}px, ${dy}px)`;
+
+            // Zona muerta (evita movimientos involuntarios pequeños)
+            let deadzone = 8;
+            if (dist < deadzone) {
+                targetVx = 0;
+                targetVy = 0;
+            } else {
+                let factor = (dist - deadzone) / (maxDist - deadzone);
+                targetVx = (dx / dist) * factor * nave.velocidadMax;
+                targetVy = (dy / dist) * factor * nave.velocidadMax;
+            }
+        }
+
+        // Bucle principal de físicas y renderizado con interpolación suave
+        function loopJuego() {
+            if (!juegoActivo) return;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Suavizado de movimiento (Inercia / Lerp) para evitar tirones bruscos
+            nave.vx += (targetVx - nave.vx) * 0.15;
+            nave.vy += (targetVy - nave.vy) * 0.15;
+
+            nave.x += nave.vx;
+            nave.y += nave.vy;
+            nave.x = Math.max(nave.radio, Math.min(canvas.width - nave.radio, nave.x));
+            nave.y = Math.max(nave.radio, Math.min(canvas.height - nave.radio, nave.y));
+
+            // Dibujar Nave
+            ctx.save();
+            ctx.translate(nave.x, nave.y);
+            ctx.fillStyle = invulnerable && Math.floor(Date.now() / 100) % 2 === 0 ? 'rgba(255,255,255,0.3)' : '#3498db';
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(0, -nave.radio);
+            ctx.lineTo(nave.radio * 0.8, nave.radio);
+            ctx.lineTo(0, nave.radio * 0.6);
+            ctx.lineTo(-nave.radio * 0.8, nave.radio);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+            ctx.restore();
+
+            // Asteroides
+            for (let i = asteroides.length - 1; i >= 0; i--) {
+                let ast = asteroides[i];
+                ast.x += ast.vx;
+                ast.y += ast.vy;
+
+                if (ast.x - ast.radio < 0 || ast.x + ast.radio > canvas.width) {
+                    ast.vx = -ast.vx;
+                }
+
+                ctx.fillStyle = '#7f8c8d';
+                ctx.strokeStyle = '#95a5a6';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(ast.x, ast.y, ast.radio, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+
+                if (!invulnerable) {
+                    let distX = nave.x - ast.x;
+                    let distY = nave.y - ast.y;
+                    let distancia = Math.sqrt(distX * distX + distY * distY);
+
+                    if (distancia < nave.radio + ast.radio) {
+                        vidas--;
+                        actualizarHUD();
+                        activarInvulnerabilidad();
+
+                        if (vidas <= 0) {
+                            finalizarDerrota();
+                            return;
+                        }
+                    }
+                }
+
+                if (ast.y - ast.radio > canvas.height) {
+                    asteroides.splice(i, 1);
+                }
+            }
+
+            requestAnimationFrame(loopJuego);
+        }
+
+        function activarInvulnerabilidad() {
+            invulnerable = true;
+            setTimeout(() => {
+                invulnerable = false;
+            }, 1500);
+        }
+
+        function finalizarVictoria() {
+            juegoActivo = false;
+            clearInterval(timerInterval);
+            clearInterval(asteroideInterval);
+            document.getElementById('joystick-base').style.display = 'none';
+            hud.style.display = 'none';
+            document.getElementById('win-message').style.display = 'flex';
+        }
+
+        function finalizarDerrota() {
+            juegoActivo = false;
+            clearInterval(timerInterval);
+            clearInterval(asteroideInterval);
+            document.getElementById('joystick-base').style.display = 'none';
+            hud.style.display = 'none';
+            alert("¡Tu nave ha sido destruida por los asteroides! Inténtalo de nuevo.");
+            reiniciarJuego();
+        }
+
+        function reiniciarJuego() {
+            document.getElementById('win-message').style.display = 'none';
+            startScreen.style.display = 'flex';
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+    </script>
+</body>
+</html>
+

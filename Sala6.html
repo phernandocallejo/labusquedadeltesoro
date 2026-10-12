@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>La Búsqueda del Tesoro - Sala 6</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #2c3e50;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            min-height: 100vh;
+            margin: 0;
+            padding: 15px;
+            box-sizing: border-box;
+            text-align: center;
+            overflow: hidden;
+            position: relative;
+        }
+        h1 {
+            font-size: 1.4rem;
+            margin-bottom: 5px;
+            z-index: 2;
+        }
+        p.instructions {
+            font-size: 0.95rem;
+            color: #bdc3c7;
+            margin-bottom: 15px;
+            max-width: 340px;
+            line-height: 1.3;
+            z-index: 2;
+        }
+        .overlay-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(44, 62, 80, 0.98);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            box-sizing: border-box;
+            z-index: 10;
+        }
+        .card {
+            background: white;
+            color: #333;
+            padding: 30px;
+            border-radius: 12px;
+            max-width: 400px;
+            width: 100%;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+        }
+        .card h2 {
+            color: #2c3e50;
+            margin-top: 0;
+        }
+        .card p {
+            font-size: 1.1rem;
+            line-height: 1.5;
+            color: #555;
+        }
+        input[type="text"] {
+            width: 80%;
+            padding: 12px;
+            font-size: 1.1rem;
+            margin-top: 15px;
+            border: 2px solid #ccc;
+            border-radius: 5px;
+            text-align: center;
+            box-sizing: border-box;
+        }
+        button.action-btn {
+            background-color: #e74c3c;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            font-size: 1.1rem;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 15px;
+            font-weight: bold;
+        }
+        button.action-btn:hover {
+            background-color: #c0392b;
+        }
+        #error-msg {
+            color: #e74c3c;
+            font-size: 0.95rem;
+            margin-top: 12px;
+            font-weight: bold;
+            display: none;
+        }
+        
+        /* Globos grandes distribuidos por toda la pantalla */
+        .balloon {
+            position: absolute;
+            width: 65px;
+            height: 80px;
+            border-radius: 50% 50% 50% 50% / 40% 40% 60% 60%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 1.6rem;
+            cursor: pointer;
+            box-shadow: inset -6px -6px 0px rgba(0,0,0,0.2);
+            transition: transform 0.1s ease-out;
+            user-select: none;
+            z-index: 1;
+        }
+        .balloon::after {
+            content: "";
+            position: absolute;
+            bottom: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 2px;
+            height: 15px;
+            background-color: #bdc3c7;
+        }
+        .balloon.popped {
+            transform: scale(0);
+            pointer-events: none;
+        }
+        #next-target {
+            font-weight: bold;
+            color: #f1c40f;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Pantalla de Contraseña Inicial -->
+    <div id="password-screen" class="overlay-screen">
+        <div class="card">
+            <h2>Sala 6 🔒</h2>
+            <p>Bienvenido, carahuevo.<br>Introduce la contraseña para continuar:</p>
+            <input type="text" id="pass-input" placeholder="Escribe la clave..." autocomplete="off">
+            <br>
+            <button id="btn-entrar" class="action-btn" type="button">Entrar</button>
+            <div id="error-msg">Contraseña incorrecta, prueba otra vez.</div>
+        </div>
+    </div>
+
+    <h1>¡Desafío número 6! 🎈</h1>
+    <p class="instructions">
+        Revienta los globos en orden estricto del 1 al 9 (<span id="next-target">1</span>). ¡Si tocas uno que no toca, se reinicia!
+    </p>
+
+    <!-- Pantalla de Victoria Final -->
+    <div id="win-message" class="overlay-screen" style="display: none;">
+        <div class="card">
+            <h2 style="color: #27ae60;">¡Enhorabuena! 🎉</h2>
+            <p>¡Has cazado todos los globos!</p>
+            <p><strong>Pasa a la sala 15.</strong><br>Contraseña: <strong>globo y chincheta</strong></p>
+            <button type="button" class="action-btn" onclick="reiniciarJuego()">Volver a jugar</button>
+        </div>
+    </div>
+
+    <script>
+        const CONTRASEÑA_CORRECTA = "pokemon"; 
+
+        const passInput = document.getElementById('pass-input');
+        const btnEntrar = document.getElementById('btn-entrar');
+        const errorMsg = document.getElementById('error-msg');
+        const passwordScreen = document.getElementById('password-screen');
+
+        function comprobarClave() {
+            let valorEscrito = passInput.value.trim();
+            if (valorEscrito.toLowerCase() === CONTRASEÑA_CORRECTA.toLowerCase()) {
+                passwordScreen.style.display = 'none';
+                iniciarJuego();
+            } else {
+                errorMsg.style.display = 'block';
+                passInput.value = '';
+                passInput.focus();
+            }
+        }
+
+        btnEntrar.addEventListener('click', comprobarClave);
+        passInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                comprobarClave();
+            }
+        });
+
+        // Lógica de los globos en toda la pantalla
+        const nextTargetDisplay = document.getElementById('next-target');
+        let expectedNumber = 1;
+        let escapeCount = 0; 
+        const totalBalloons = 9;
+        const colores = ['#e74c3c', '#3498db', '#2ecc71', '#9b59b6', '#e67e22', '#1abc9c', '#e84393', '#fdcb6e', '#0984e3'];
+        let activeBalloons = [];
+
+        function iniciarJuego() {
+            activeBalloons.forEach(b => b.remove());
+            activeBalloons = [];
+
+            expectedNumber = 1;
+            escapeCount = 0;
+            nextTargetDisplay.innerText = expectedNumber;
+
+            let numeros = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+            
+            numeros.forEach((num, index) => {
+                const balloon = document.createElement('div');
+                balloon.classList.add('balloon');
+                balloon.innerText = num;
+                balloon.dataset.number = num;
+                balloon.style.backgroundColor = colores[index % colores.length];
+
+                posicionarAleatorio(balloon);
+
+                balloon.addEventListener('click', () => manejarClicGlobo(balloon, num));
+                document.body.appendChild(balloon);
+                activeBalloons.push(balloon);
+            });
+        }
+
+        function posicionarAleatorio(balloon) {
+            const maxX = window.innerWidth - 90;
+            const maxY = window.innerHeight - 120;
+            const minX = 20;
+            const minY = 130; 
+
+            let randomX = Math.floor(Math.random() * (maxX - minX)) + minX;
+            let randomY = Math.floor(Math.random() * (maxY - minY)) + minY;
+
+            balloon.style.left = randomX + 'px';
+            balloon.style.top = randomY + 'px';
+        }
+
+        function manejarClicGlobo(balloon, num) {
+            if (balloon.classList.contains('popped')) return;
+
+            // Si pincha un número incorrecto -> ¡Se reinicia el juego!
+            if (num !== expectedNumber) {
+                alert("¡Has pinchado el globo equivocado! Se reinicia el desafío.");
+                iniciarJuego();
+                return;
+            }
+
+            // Si es el globo número 9 y tiene que huir 7 veces antes de dejarse pinchar
+            if (num === 9 && escapeCount < 7) {
+                escapeCount++;
+                posicionarAleatorio(balloon); // Salto a otra parte de la pantalla
+                if (escapeCount === 7) {
+                    reventarGlobo(balloon, num);
+                }
+                return;
+            }
+
+            reventarGlobo(balloon, num);
+        }
+
+        function reventarGlobo(balloon, num) {
+            balloon.classList.add('popped');
+            expectedNumber++;
+            if (expectedNumber <= totalBalloons) {
+                nextTargetDisplay.innerText = expectedNumber;
+            } else {
+                setTimeout(() => {
+                    document.getElementById('win-message').style.display = 'flex';
+                }, 400);
+            }
+        }
+
+        function reiniciarJuego() {
+            document.getElementById('win-message').style.display = 'none';
+            iniciarJuego();
+        }
+    </script>
+</body>
+</html>
+

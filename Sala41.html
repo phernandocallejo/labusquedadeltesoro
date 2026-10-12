@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>La Búsqueda del Tesoro - Sala 41</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #2c3e50;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 15px;
+            box-sizing: border-box;
+            text-align: center;
+            touch-action: none;
+            user-select: none;
+        }
+        .overlay-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(44, 62, 80, 0.98);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            box-sizing: border-box;
+            z-index: 10;
+        }
+        .card {
+            background: white;
+            color: #333;
+            padding: 30px;
+            border-radius: 12px;
+            max-width: 400px;
+            width: 100%;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+        }
+        .card h2 {
+            color: #2c3e50;
+            margin-top: 0;
+        }
+        .card p {
+            font-size: 1.1rem;
+            line-height: 1.5;
+            color: #555;
+        }
+        input[type="text"] {
+            width: 80%;
+            padding: 12px;
+            font-size: 1.1rem;
+            margin-top: 15px;
+            border: 2px solid #ccc;
+            border-radius: 5px;
+            text-align: center;
+            box-sizing: border-box;
+        }
+        button.action-btn {
+            background-color: #e74c3c;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            font-size: 1.1rem;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 15px;
+            font-weight: bold;
+        }
+        button.action-btn:hover {
+            background-color: #c0392b;
+        }
+        #error-msg {
+            color: #e74c3c;
+            font-size: 0.95rem;
+            margin-top: 12px;
+            font-weight: bold;
+            display: none;
+        }
+        
+        /* Contenedor del teléfono con disco giratorio */
+        #phone-container {
+            background: #1a252f;
+            border: 4px solid #f1c40f;
+            border-radius: 16px;
+            padding: 20px;
+            width: 340px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            box-sizing: border-box;
+        }
+        .screen-display {
+            background: #2c3e50;
+            border: 2px solid #bdc3c7;
+            border-radius: 8px;
+            width: 100%;
+            height: 45px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            font-family: monospace;
+            color: #f1c40f;
+            letter-spacing: 3px;
+            box-sizing: border-box;
+        }
+        .phone-instructions {
+            font-size: 0.9rem;
+            color: #bdc3c7;
+            margin: 0;
+            line-height: 1.4;
+        }
+        #phone-error {
+            color: #e74c3c;
+            font-size: 0.85rem;
+            font-weight: bold;
+            display: none;
+            margin: 0;
+        }
+
+        /* Estilo del disco rotativo SVG */
+        #rotary-dial {
+            width: 260px;
+            height: 260px;
+            cursor: grab;
+            touch-action: none;
+        }
+        #rotary-dial:active {
+            cursor: grabbing;
+        }
+
+        .ctrl-btn {
+            width: 100%;
+            padding: 10px;
+            font-size: 0.95rem;
+            font-weight: bold;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            background-color: #e74c3c;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Pantalla de Contraseña Inicial -->
+    <div id="password-screen" class="overlay-screen">
+        <div class="card">
+            <h2>Sala 41 🔒</h2>
+            <p>Bienvenido, carahuevo.<br>Introduce la contraseña para continuar:</p>
+            <input type="text" id="pass-input" placeholder="Escribe la clave..." autocomplete="off">
+            <br>
+            <button id="btn-entrar" class="action-btn" type="button">Entrar</button>
+            <div id="error-msg">Contraseña incorrecta, prueba otra vez.</div>
+        </div>
+    </div>
+
+    <!-- Contenedor del Teléfono de Disco -->
+    <div id="phone-container">
+        <p class="phone-instructions">☎️ Arrastra desde un número hacia el tope derecho para marcar (Arboleda):</p>
+        <div class="screen-display" id="display-number"></div>
+        <div id="phone-error">Número incorrecto. ¡Prueba otra vez!</div>
+        
+        <!-- Disco de Marcar SVG Interactivo -->
+        <svg id="rotary-dial" viewBox="0 0 300 300">
+            <!-- Cuerpo base del disco -->
+            <circle cx="150" cy="150" r="140" fill="#2c3e50" stroke="#7f8c8d" stroke-width="6"/>
+            
+            <!-- Grupo giratorio que rota con JS -->
+            <g id="dial-wheel" style="transform-origin: 150px 150px; transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);">
+                <circle cx="150" cy="150" r="120" fill="#ecf0f1" stroke="#bdc3c7" stroke-width="4" opacity="0.95"/>
+                <circle cx="150" cy="150" r="45" fill="#2c3e50"/>
+                
+                <!-- Los agujeros y números del disco se inyectan aquí por JS -->
+                <g id="dial-holes"></g>
+            </g>
+
+            <!-- Tope metálico fijo de marcación (a la derecha, aprox ángulo 45°) -->
+            <g transform="translate(245, 185)">
+                <rect x="-6" y="-12" width="12" height="24" rx="4" fill="#e74c3c" stroke="#c0392b" stroke-width="2"/>
+                <circle cx="0" cy="0" r="3" fill="#fff"/>
+            </g>
+        </svg>
+
+        <button class="ctrl-btn" onclick="borrarDigito()">Borrar último</button>
+    </div>
+
+    <!-- Pantalla de Victoria Final -->
+    <div id="win-message" class="overlay-screen" style="display: none;">
+        <div class="card">
+            <h2 style="color: #27ae60;">¡Llamada conectada! 📞🎉</h2>
+            <p>¡Has marcado el número correcto de la Arboleda!</p>
+            <p><strong>Pasa a la sala 26.</strong><br>Contraseña: <strong>la loca de las coles</strong></p>
+            <button type="button" class="action-btn" onclick="reiniciarJuego()">Colgar y reintentar</button>
+        </div>
+    </div>
+
+    <script>
+        const CONTRASEÑA_CORRECTA = "pelotudo"; 
+        const NUMERO_ARBOLEDA = "976588764";
+        let numeroMarcado = "";
+
+        const passInput = document.getElementById('pass-input');
+        const btnEntrar = document.getElementById('btn-entrar');
+        const errorMsg = document.getElementById('error-msg');
+        const passwordScreen = document.getElementById('password-screen');
+
+        function comprobarClave() {
+            let valorEscrito = passInput.value.trim();
+            if (valorEscrito.toLowerCase() === CONTRASEÑA_CORRECTA.toLowerCase()) {
+                passwordScreen.style.display = 'none';
+            } else {
+                errorMsg.style.display = 'block';
+                passInput.value = '';
+                passInput.focus();
+            }
+        }
+
+        btnEntrar.addEventListener('click', comprobarClave);
+        passInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                comprobarClave();
+            }
+        });
+
+        // Configuración y dibujo del disco de marcar analógico
+        const dialWheel = document.getElementById('dial-wheel');
+        const dialHolesGroup = document.getElementById('dial-holes');
+        const display = document.getElementById('display-number');
+        const phoneError = document.getElementById('phone-error');
+
+        // Disposición de los números en el disco rotativo (orden clásico de teléfono de disco)
+        // El tope de parada está fijo abajo a la derecha (~48.5 grados / 0.84 radianes)
+        const digitosOrden = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'];
+        const anguloTope = 0.84; 
+        const radioAgujeros = 85;
+
+        let agujerosData = [];
+
+        function construirDisco() {
+            dialHolesGroup.innerHTML = '';
+            agujerosData = [];
+
+            digitosOrden.forEach((digito, index) => {
+                // Distribuir los números en círculo empezando desde arriba a la derecha
+                let angulo = (index * (Math.PI * 2 / 10)) - Math.PI / 2 + 0.3;
+                let cx = 150 + Math.cos(angulo) * radioAgujeros;
+                let cy = 150 + Math.sin(angulo) * radioAgujeros;
+
+                agujerosData.push({ digito: digito, anguloBase: angulo, x: cx, y: cy });
+
+                // Dibujar círculo transparente/translúcido del agujero
+                let circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                circle.setAttribute('cx', cx);
+                circle.setAttribute('cy', cy);
+                circle.setAttribute('r', '18');
+                circle.setAttribute('fill', '#ffffff');
+                circle.setAttribute('opacity', '0.85');
+                circle.setAttribute('stroke', '#bdc3c7');
+                circle.setAttribute('stroke-width', '2');
+                dialHolesGroup.appendChild(circle);
+
+                // Dibujar número del agujero
+                let text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                text.setAttribute('x', cx);
+                text.setAttribute('y', cy + 6);
+                text.setAttribute('text-anchor', 'middle');
+                text.setAttribute('fill', '#2c3e50');
+                text.setAttribute('font-size', '16');
+                text.setAttribute('font-weight', 'bold');
+                text.textContent = digito;
+                dialHolesGroup.appendChild(text);
+            });
+        }
+
+        construirDisco();
+
+        // Lógica de arrastre y giro del disco
+        let arrastrando = false;
+        let digitoSeleccionado = null;
+        let anguloInicialArrastre = 0;
+        let rotacionActual = 0;
+
+        const svgDial = document.getElementById('rotary-dial');
+
+        function obtenerAnguloDesdeCentro(e) {
+            let rect = svgDial.getBoundingClientRect();
+            let centroX = rect.left + rect.width / 2;
+            let centroY = rect.top + rect.height / 2;
+            let clientX = e.clientX || (e.touches && e.touches[0].clientX);
+            let clientY = e.clientY || (e.touches && e.touches[0].clientY);
+            return Math.atan2(clientY - centroY, clientX - centroX);
+        }
+
+        svgDial.addEventListener('pointerdown', (e) => {
+            let rect = svgDial.getBoundingClientRect();
+            let centroX = rect.left + rect.width / 2;
+            let centroY = rect.top + rect.height / 2;
+            let clientX = e.clientX;
+            let clientY = e.clientY;
+
+            let anguloTocado = Math.atan2(clientY - centroY, clientX - centroX);
+
+            // Buscar qué agujero se ha tocado
+            let masCercano = null;
+            let menorDist = Infinity;
+
+            agujerosData.forEach(h => {
+                // Calcular posición actual del agujero según el radio SVG
+                let dist = Math.hypot((clientX - rect.left) - (h.x / 300 * rect.width), (clientY - rect.top) - (h.y / 300 * rect.height));
+                if (dist < 35 && dist < menorDist) {
+                    menorDist = dist;
+                    masCercano = h;
+                }
+            });
+
+            if (masCercano) {
+                arrastrando = true;
+                digitoSeleccionado = masCercano;
+                anguloInicialArrastre = anguloTocado - rotacionActual;
+            }
+        });
+
+        window.addEventListener('pointermove', (e) => {
+            if (!arrastrando || !digitoSeleccionado) return;
+
+            let anguloActual = obtenerAnguloDesdeCentro(e);
+            let nuevaRotacion = anguloActual - anguloInicialArrastre;
+
+            // Solo permitir girar en sentido horario hacia el tope (de 0 hasta el ángulo del número seleccionado)
+            let anguloMaximoGiro = anguloTope - digitoSeleccionado.anguloBase;
+            
+            if (nuevaRotacion < 0) nuevaRotacion = 0;
+            if (nuevaRotacion > anguloMaximoGiro) nuevaRotacion = anguloMaximoGiro;
+
+            rotacionActual = nuevaRotacion;
+            dialWheel.style.transform = `rotate(${rotacionActual * (180 / Math.PI)}deg)`;
+            dialWheel.style.transition = 'none';
+        });
+
+        function soltarDisco() {
+            if (!arrastrando || !digitoSeleccionado) return;
+            arrastrando = false;
+
+            // Calcular cuánto ha girado para saber si llegó al tope de marcación
+            let anguloMaximoGiro = anguloTope - digitoSeleccionado.anguloBase;
+            let porcentajeGiro = rotacionActual / (anguloMaximoGiro || 1);
+
+            if (porcentajeGiro > 0.8) {
+                // ¡Se marcó con éxito el número!
+                phoneError.style.display = 'none';
+                if (numeroMarcado.length < 12) {
+                    numeroMarcado += digitoSeleccionado.digito;
+                    display.innerText = numeroMarcado;
+
+                    // Comprobar si ya marcó los 9 dígitos
+                    if (numeroMarcado === NUMERO_ARBOLEDA) {
+                        setTimeout(() => {
+                            document.getElementById('win-message').style.display = 'flex';
+                        }, 500);
+                    } else if (numeroMarcado.length >= 9 && numeroMarcado !== NUMERO_ARBOLEDA) {
+                        setTimeout(() => {
+                            phoneError.style.display = 'block';
+                            numeroMarcado = "";
+                            display.innerText = "";
+                        }, 400);
+                    }
+                }
+            }
+
+            // Retorno elástico del disco a la posición inicial 0
+            dialWheel.style.transition = 'transform 0.5s cubic-bezier(0.25, 1, 0.5, 1)';
+            dialWheel.style.transform = 'rotate(0deg)';
+            rotacionActual = 0;
+            digitoSeleccionado = null;
+        }
+
+        window.addEventListener('pointerup', soltarDisco);
+        window.addEventListener('pointercancel', soltarDisco);
+
+        function borrarDigito() {
+            phoneError.style.display = 'none';
+            numeroMarcado = numeroMarcado.slice(0, -1);
+            display.innerText = numeroMarcado;
+        }
+
+        function reiniciarJuego() {
+            document.getElementById('win-message').style.display = 'none';
+            numeroMarcado = "";
+            display.innerText = "";
+            phoneError.style.display = 'none';
+        }
+    </script>
+</body>
+</html>
+

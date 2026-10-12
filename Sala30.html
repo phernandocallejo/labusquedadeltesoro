@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>La Búsqueda del Tesoro - Sala 30</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #2c3e50;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 10px;
+            box-sizing: border-box;
+            text-align: center;
+            touch-action: none;
+            overflow: hidden;
+            position: relative;
+        }
+        .overlay-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(44, 62, 80, 0.98);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            box-sizing: border-box;
+            z-index: 30;
+        }
+        .card {
+            background: white;
+            color: #333;
+            padding: 30px;
+            border-radius: 12px;
+            max-width: 400px;
+            width: 100%;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+        }
+        .card h2 {
+            color: #2c3e50;
+            margin-top: 0;
+        }
+        .card p {
+            font-size: 1.1rem;
+            line-height: 1.5;
+            color: #555;
+        }
+        input[type="text"] {
+            width: 80%;
+            padding: 12px;
+            font-size: 1.1rem;
+            margin-top: 15px;
+            border: 2px solid #ccc;
+            border-radius: 5px;
+            text-align: center;
+            box-sizing: border-box;
+        }
+        button.action-btn {
+            background-color: #e74c3c;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            font-size: 1.1rem;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 15px;
+            font-weight: bold;
+        }
+        button.action-btn:hover {
+            background-color: #c0392b;
+        }
+        #error-msg {
+            color: #e74c3c;
+            font-size: 0.95rem;
+            margin-top: 12px;
+            font-weight: bold;
+            display: none;
+        }
+        
+        /* Lienzo del juego láser */
+        #gameCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            background: #0d1117;
+        }
+
+        /* Panel superior con instrucciones y botón de reinicio */
+        #ui-top-panel {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            pointer-events: none;
+        }
+        #instructions-text {
+            color: #f1c40f;
+            font-size: 0.9rem;
+            font-weight: bold;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+            margin: 0;
+        }
+        .ui-btn {
+            pointer-events: auto;
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 6px 14px;
+            font-size: 0.85rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            box-shadow: 0 3px 8px rgba(0,0,0,0.4);
+        }
+        .ui-btn:active {
+            transform: scale(0.95);
+        }
+
+        /* Botón de borrar abajo a la derecha */
+        #btn-borrar {
+            position: absolute;
+            bottom: 25px;
+            right: 25px;
+            z-index: 10;
+            background: #e74c3c;
+            color: white;
+            border: none;
+            padding: 8px 14px;
+            font-size: 0.85rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            box-shadow: 0 3px 8px rgba(0,0,0,0.4);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Pantalla de Contraseña Inicial -->
+    <div id="password-screen" class="overlay-screen">
+        <div class="card">
+            <h2>Sala 30 🔒</h2>
+            <p>Bienvenido, carahuevo.<br>Introduce la contraseña para continuar:</p>
+            <input type="text" id="pass-input" placeholder="Escribe la clave..." autocomplete="off">
+            <br>
+            <button id="btn-entrar" class="action-btn" type="button">Entrar</button>
+            <div id="error-msg">Contraseña incorrecta, prueba otra vez.</div>
+        </div>
+    </div>
+
+    <!-- Lienzo del juego -->
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- Panel superior: Instrucciones + Botón de Reiniciar -->
+    <div id="ui-top-panel">
+        <p id="instructions-text">Dibuja espejos con el dedo para guiar el láser 🔴 al objetivo 🎯</p>
+        <button class="ui-btn" onclick="reiniciarNivel()">🔄 Reiniciar / Nuevo Nivel</button>
+    </div>
+
+    <!-- Botón Borrar líneas abajo a la derecha -->
+    <button id="btn-borrar" onclick="limpiarTrazos()">🗑️ Borrar Líneas</button>
+
+    <!-- Pantalla de Victoria Final -->
+    <div id="win-message" class="overlay-screen" style="display: none; background: rgba(44, 62, 80, 0.98);">
+        <div class="card">
+            <h2 style="color: #27ae60;">¡Láser conectado! 🎉</h2>
+            <p>¡Has reflejado el haz hasta alcanzar el objetivo!</p>
+            <p><strong>Pasa a la sala 44.</strong><br>Contraseña: <strong>tictac</strong></p>
+            <button type="button" class="action-btn" onclick="reiniciarJuego()">Volver a jugar</button>
+        </div>
+    </div>
+
+    <script>
+        const CONTRASEÑA_CORRECTA = "pasadizo"; 
+
+        const passInput = document.getElementById('pass-input');
+        const btnEntrar = document.getElementById('btn-entrar');
+        const errorMsg = document.getElementById('error-msg');
+        const passwordScreen = document.getElementById('password-screen');
+
+        function comprobarClave() {
+            let valorEscrito = passInput.value.trim();
+            if (valorEscrito.toLowerCase() === CONTRASEÑA_CORRECTA.toLowerCase()) {
+                passwordScreen.style.display = 'none';
+                comenzarPartida();
+            } else {
+                errorMsg.style.display = 'block';
+                passInput.value = '';
+                passInput.focus();
+            }
+        }
+
+        btnEntrar.addEventListener('click', comprobarClave);
+        passInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                comprobarClave();
+            }
+        });
+
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let juegoActivo = false;
+        let lineasUsuario = []; 
+        let dibujando = false;
+        let trazoActual = null;
+
+        let laser = { x: 0, y: 0, dx: 1, dy: 0 };
+        let objetivo = { x: 0, y: 0, radio: 32, alcanzado: false };
+
+        function ajustarCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            generarNivelAleatorio();
+        }
+        window.addEventListener('resize', ajustarCanvas);
+
+        function generarNivelAleatorio() {
+            let seguro = false;
+            let intentos = 0;
+
+            while (!seguro && intentos < 50) {
+                intentos++;
+                
+                let bordeLaser = Math.floor(Math.random() * 3);
+                if (bordeLaser === 0) {
+                    laser.x = 20;
+                    laser.y = Math.random() * (canvas.height * 0.5) + 80;
+                } else if (bordeLaser === 1) {
+                    laser.x = Math.random() * (canvas.width - 100) + 50;
+                    laser.y = 30;
+                } else {
+                    laser.x = canvas.width - 20;
+                    laser.y = Math.random() * (canvas.height * 0.5) + 80;
+                }
+
+                let angulo = (Math.random() * 120 + 30) * (Math.PI / 180);
+                if (bordeLaser === 0) angulo = (Math.random() * 90 - 45) * (Math.PI / 180);
+                if (bordeLaser === 2) angulo = (Math.random() * 90 + 135) * (Math.PI / 180);
+                
+                laser.dx = Math.cos(angulo);
+                laser.dy = Math.sin(angulo);
+
+                objetivo.x = Math.random() * (canvas.width - 160) + 80;
+                objetivo.y = Math.random() * (canvas.height * 0.4) + (canvas.height * 0.4);
+
+                let testX = laser.x;
+                let testY = laser.y;
+                let chocaDirecto = false;
+                for(let i=0; i<500; i++) {
+                    testX += laser.dx * 5;
+                    testY += laser.dy * 5;
+                    if (Math.hypot(testX - objetivo.x, testY - objetivo.y) <= objetivo.radio) {
+                        chocaDirecto = true;
+                        break;
+                    }
+                    if (testX < 0 || testX > canvas.width || testY < 0 || testY > canvas.height) break;
+                }
+
+                if (!chocaDirecto) {
+                    seguro = true;
+                }
+            }
+        }
+
+        function comenzarPartida() {
+            ajustarCanvas();
+            lineasUsuario = [];
+            objetivo.alcanzado = false;
+            juegoActivo = true;
+            loopJuego();
+        }
+
+        function reiniciarNivel() {
+            generarNivelAleatorio();
+            lineasUsuario = [];
+            objetivo.alcanzado = false;
+        }
+
+        function limpiarTrazos() {
+            lineasUsuario = [];
+            objetivo.alcanzado = false;
+        }
+
+        function iniciarTrazo(x, y) {
+            if (y < 90 && x > canvas.width / 2 - 180 && x < canvas.width / 2 + 180) return;
+            if (y > canvas.height - 70 && x > canvas.width - 120) return;
+
+            dibujando = true;
+            trazoActual = { x1: x, y1: y, x2: x, y2: y };
+        }
+
+        function moverTrazo(x, y) {
+            if (!dibujando || !trazoActual) return;
+            trazoActual.x2 = x;
+            trazoActual.y2 = y;
+        }
+
+        function finalizarTrazo() {
+            if (dibujando && trazoActual) {
+                let len = Math.hypot(trazoActual.x2 - trazoActual.x1, trazoActual.y2 - trazoActual.y1);
+                if (len > 8) {
+                    lineasUsuario.push({ ...trazoActual });
+                }
+                dibujando = false;
+                trazoActual = null;
+            }
+        }
+
+        canvas.addEventListener('touchstart', (e) => {
+            let t = e.touches[0];
+            iniciarTrazo(t.clientX, t.clientY);
+        }, { passive: true });
+
+        canvas.addEventListener('touchmove', (e) => {
+            let t = e.touches[0];
+            moverTrazo(t.clientX, t.clientY);
+        }, { passive: true });
+
+        canvas.addEventListener('touchend', (e) => {
+            finalizarTrazo();
+        });
+
+        canvas.addEventListener('mousedown', (e) => {
+            iniciarTrazo(e.clientX, e.clientY);
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            moverTrazo(e.clientX, e.clientY);
+        });
+
+        window.addEventListener('mouseup', () => {
+            finalizarTrazo();
+        });
+
+        function distanciaPuntoSegmento(px, py, x1, y1, x2, y2) {
+            let A = px - x1;
+            let B = py - y1;
+            let C = x2 - x1;
+            let D = y2 - y1;
+            let dot = A * C + B * D;
+            let lenSq = C * C + D * D;
+            let param = -1;
+            if (lenSq !== 0) param = dot / lenSq;
+            let xx, yy;
+            if (param < 0) { xx = x1; yy = y1; }
+            else if (param > 1) { xx = x2; yy = y2; }
+            else { xx = x1 + param * C; yy = y1 + param * D; }
+            return Math.hypot(px - xx, py - yy);
+        }
+
+        function loopJuego() {
+            if (!juegoActivo) return;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Emisor láser
+            ctx.fillStyle = '#e74c3c';
+            ctx.fillRect(laser.x - 10, laser.y - 15, 20, 30);
+            ctx.fillStyle = '#fff';
+            ctx.font = '10px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText("🔴 LÁSER", laser.x, laser.y - 20);
+
+            // Objetivo
+            ctx.beginPath();
+            ctx.arc(objetivo.x, objetivo.y, objetivo.radio, 0, Math.PI * 2);
+            ctx.fillStyle = objetivo.alcanzado ? '#27ae60' : '#e67e22';
+            ctx.fill();
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            ctx.fillStyle = '#fff';
+            ctx.font = '11px sans-serif';
+            ctx.fillText("🎯 OBJETIVO", objetivo.x, objetivo.y - 40);
+
+            // Trazos usuario (Espejos)
+            ctx.strokeStyle = '#3498db';
+            ctx.lineWidth = 6;
+            ctx.lineCap = 'round';
+            for (let l of lineasUsuario) {
+                ctx.beginPath();
+                ctx.moveTo(l.x1, l.y1);
+                ctx.lineTo(l.x2, l.y2);
+                ctx.stroke();
+            }
+
+            if (dibujando && trazoActual) {
+                ctx.strokeStyle = '#2980b9';
+                ctx.beginPath();
+                ctx.moveTo(trazoActual.x1, trazoActual.y1);
+                ctx.lineTo(trazoActual.x2, trazoActual.y2);
+                ctx.stroke();
+            }
+
+            // Simulación paso a paso (Raymarching) para garantizar reflexión exacta con cualquier trazo
+            let rayoPuntos = [{ x: laser.x, y: laser.y }];
+            let currX = laser.x;
+            let currY = laser.y;
+            let curDx = laser.dx;
+            let curDy = laser.dy;
+
+            let maxPasos = 1500; // Máxima longitud del haz
+            let pasoSize = 4;    // Resolución del avance
+            let maxRebotes = 10;
+            let rebotesActuales = 0;
+            let alcanzadoEnFrame = false;
+
+            for (let step = 0; step < maxPasos; step++) {
+                currX += curDx * pasoSize;
+                currY += curDy * pasoSize;
+
+                // 1. Comprobar si llega al objetivo
+                if (Math.hypot(currX - objetivo.x, currY - objetivo.y) <= objetivo.radio) {
+                    rayoPuntos.push({ x: currX, y: currY });
+                    alcanzadoEnFrame = true;
+                    break;
+                }
+
+                // 2. Comprobar si sale de la pantalla
+                if (currX < 0 || currX > canvas.width || currY < 0 || currY > canvas.height) {
+                    rayoPuntos.push({ x: currX, y: currY });
+                    break;
+                }
+
+                // 3. Comprobar colisión con alguna línea (espejo) del usuario
+                let colisionDetectada = false;
+                for (let l of lineasUsuario) {
+                    let dist = distanciaPuntoSegmento(currX, currY, l.x1, l.y1, l.x2, l.y2);
+                    if (dist <= 6 && rebotesActuales < maxRebotes) {
+                        // ¡Chocó con el espejo! Guardamos punto y calculamos nueva dirección por reflexión
+                        rayoPuntos.push({ x: currX, y: currY });
+                        
+                        let dxL = l.x2 - l.x1;
+                        let dyL = l.y2 - l.y1;
+                        let lenL = Math.hypot(dxL, dyL);
+                        let nx = -dyL / lenL;
+                        let ny = dxL / lenL;
+
+                        let dot = curDx * nx + curDy * ny;
+                        curDx = curDx - 2 * dot * nx;
+                        curDy = curDy - 2 * dot * ny;
+
+                        // Retroceder un ápice para no rebotar infinitamente en el mismo sitio
+                        currX += curDx * 8;
+                        currY += curDy * 8;
+
+                        rebotesActuales++;
+                        colisionDetectada = true;
+                        break;
+                    }
+                }
+                if (colisionDetectada && alcanzadoEnFrame) break;
+            }
+
+            // Si el bucle terminó sin golpear nada ni al objetivo, añadir el último punto final
+            if (!alcanzadoEnFrame && rayoPuntos[rayoPuntos.length - 1].x !== currX) {
+                rayoPuntos.push({ x: currX, y: currY });
+            }
+
+            objetivo.alcanzado = alcanzadoEnFrame;
+
+            // Dibujar rayo láser brillante
+            ctx.strokeStyle = '#ff3838';
+            ctx.lineWidth = 3;
+            ctx.shadowBlur = 12;
+            ctx.shadowColor = '#ff3838';
+            ctx.beginPath();
+            if (rayoPuntos.length > 0) {
+                ctx.moveTo(rayoPuntos[0].x, rayoPuntos[0].y);
+                for (let i = 1; i < rayoPuntos.length; i++) {
+                    ctx.lineTo(rayoPuntos[i].x, rayoPuntos[i].y);
+                }
+            }
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+
+            if (objetivo.alcanzado) {
+                juegoActivo = false;
+                setTimeout(() => {
+                    document.getElementById('win-message').style.display = 'flex';
+                }, 400);
+            }
+
+            requestAnimationFrame(loopJuego);
+        }
+
+        function reiniciarJuego() {
+            document.getElementById('win-message').style.display = 'none';
+            reiniciarNivel();
+            juegoActivo = true;
+            loopJuego();
+        }
+    </script>
+</body>
+</html>
+

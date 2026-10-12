@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>La Búsqueda del Tesoro - La Sala Final</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #000;
+            color: #fff;
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            touch-action: none;
+        }
+        .screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            z-index: 10;
+        }
+        .card {
+            background: #1a1a1a;
+            border: 2px solid #444;
+            padding: 30px;
+            border-radius: 12px;
+            max-width: 380px;
+            width: 100%;
+            text-align: center;
+            box-shadow: 0 10px 25px rgba(255,255,255,0.1);
+        }
+        .card h2 {
+            color: #f1c40f;
+            margin-top: 0;
+        }
+        .card p {
+            font-size: 1.1rem;
+            color: #ccc;
+            line-height: 1.4;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            font-size: 1.1rem;
+            margin-top: 15px;
+            border: 2px solid #555;
+            background: #222;
+            color: #fff;
+            border-radius: 6px;
+            text-align: center;
+        }
+        .btn {
+            background-color: #e74c3c;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            font-size: 1.1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-top: 15px;
+            font-weight: bold;
+            width: 100%;
+        }
+        .btn:hover {
+            background-color: #c0392b;
+        }
+        #error-msg {
+            color: #e74c3c;
+            font-size: 0.95rem;
+            margin-top: 10px;
+            font-weight: bold;
+            display: none;
+        }
+        .game-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: none;
+            z-index: 20;
+        }
+        /* Fase 1 */
+        #phase-1 {
+            display: none;
+            z-index: 20;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .instruction {
+            font-size: 1.2rem;
+            color: #fff;
+            margin-bottom: 20px;
+            padding: 0 20px;
+            text-align: center;
+            cursor: pointer;
+        }
+        #dropped-key {
+            position: absolute;
+            font-size: 3.5rem;
+            display: none;
+            cursor: grab;
+            z-index: 30;
+            touch-action: none;
+        }
+        #door {
+            width: 140px;
+            height: 200px;
+            background: #4a2306;
+            border: 6px solid #8b4513;
+            border-radius: 6px;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding-right: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.8);
+            margin-top: 20px;
+        }
+        .doorknob {
+            width: 16px;
+            height: 16px;
+            background: #f1c40f;
+            border-radius: 50%;
+        }
+
+        /* Fase 3 con HTML Image de fondo */
+        #phase-3 {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: none;
+            background: #000;
+            z-index: 20;
+        }
+        #treasury-img {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            z-index: 5;
+        }
+        #scratch-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            touch-action: none;
+            cursor: crosshair;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- PANTALLA DE CONTRASEÑA -->
+    <div id="screen-password" class="screen">
+        <div class="card">
+            <h2>Sala 26 🔒</h2>
+            <p>Introduce la contraseña para continuar:</p>
+            <input type="text" id="pass-input" placeholder="Escribe la clave..." autocomplete="off">
+            <button class="btn" onclick="verificarPassword()">Entrar</button>
+            <div id="error-msg">Contraseña incorrecta.</div>
+        </div>
+    </div>
+
+    <!-- PANTALLA BIENVENIDA -->
+    <div id="screen-welcome" class="screen" style="display: none;">
+        <div class="card">
+            <h2>Nivel Final</h2>
+            <p>Estás a punto de superar el desafío final del Escape Room.</p>
+            <button class="btn" onclick="iniciarFase1()">Continuar</button>
+        </div>
+    </div>
+
+    <!-- FASE 1: LLAVE Y AGITAR -->
+    <div id="phase-1" class="screen">
+        <div class="instruction" id="f1-text">Necesitas una llave para abrir esta puerta.</div>
+        <div id="dropped-key">🔑</div>
+        <div id="door">
+            <div class="doorknob"></div>
+        </div>
+    </div>
+
+    <!-- FASE 2: EMOJIS RECTANGULARES -->
+    <canvas id="canvas-phase-2" class="game-canvas"></canvas>
+
+    <!-- FASE 3: RASCA RASCA CON IMAGEN HTML DE FONDO -->
+    <div id="phase-3">
+        <img id="treasury-img" src="https://lh3.googleusercontent.com/d/1z4L4Ty4zuKO1YLwIKA2UyNwar0pi8IRf=s1000?v=2" alt="Tesoro Final">
+        <canvas id="scratch-canvas"></canvas>
+    </div>
+
+    <script>
+        const CLAVE = "la loca de las coles";
+
+        // 1. GESTIÓN DE CONTRASEÑA
+        function verificarPassword() {
+            const input = document.getElementById('pass-input');
+            const error = document.getElementById('error-msg');
+            
+            if (input.value.trim().toLowerCase() === CLAVE) {
+                document.getElementById('screen-password').style.display = 'none';
+                document.getElementById('screen-welcome').style.display = 'flex';
+            } else {
+                error.style.display = 'block';
+                input.value = '';
+                input.focus();
+            }
+        }
+
+        document.getElementById('pass-input').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') verificarPassword();
+        });
+
+        // 2. FASE 1: AGITAR / CLIC EN EL TEXTO
+        function iniciarFase1() {
+            document.getElementById('screen-welcome').style.display = 'none';
+            document.getElementById('phase-1').style.display = 'flex';
+
+            const key = document.getElementById('dropped-key');
+            const text = document.getElementById('f1-text');
+            const door = document.getElementById('door');
+            let activa = false;
+
+            function revelarLlave() {
+                if (!activa) {
+                    activa = true;
+                    text.innerText = "¡Ha aparecido la llave! Arrástrala a la puerta:";
+                    key.style.display = 'block';
+                    key.style.left = (window.innerWidth / 2 - 30) + 'px';
+                    key.style.top = '120px';
+                    configurarArrastreLlave(key, door);
+                }
+            }
+
+            text.addEventListener('click', revelarLlave);
+
+            if (window.DeviceMotionEvent) {
+                window.addEventListener('devicemotion', (e) => {
+                    let acc = e.accelerationIncludingGravity;
+                    if (acc && (Math.abs(acc.x) > 13 || Math.abs(acc.y) > 13 || Math.abs(acc.z) > 13)) {
+                        revelarLlave();
+                    }
+                });
+            }
+        }
+
+        function configurarArrastreLlave(key, door) {
+            let dragging = false;
+            let startX, startY;
+
+            key.addEventListener('pointerdown', (e) => {
+                dragging = true;
+                let rect = key.getBoundingClientRect();
+                startX = e.clientX - rect.left;
+                startY = e.clientY - rect.top;
+                key.setPointerCapture(e.pointerId);
+            });
+
+            key.addEventListener('pointermove', (e) => {
+                if (!dragging) return;
+                key.style.left = (e.clientX - startX) + 'px';
+                key.style.top = (e.clientY - startY) + 'px';
+            });
+
+            function soltar(e) {
+                if (!dragging) return;
+                dragging = false;
+
+                let kRect = key.getBoundingClientRect();
+                let dRect = door.getBoundingClientRect();
+
+                if (kRect.left < dRect.right && kRect.right > dRect.left &&
+                    kRect.top < dRect.bottom && kRect.bottom > dRect.top) {
+                    key.style.display = 'none';
+                    document.getElementById('phase-1').style.display = 'none';
+                    iniciarFase2();
+                }
+            }
+
+            key.addEventListener('pointerup', soltar);
+            key.addEventListener('pointercancel', soltar);
+        }
+
+        // 3. FASE 2: 10 PAREJAS DE EMOJIS EN ÁREA RECTANGULAR SEGURA
+        function iniciarFase2() {
+            const canvas = document.getElementById('canvas-phase-2');
+            canvas.style.display = 'block';
+            const ctx = canvas.getContext('2d');
+
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+
+            const parejas = [
+                { id: 1, a: '☀️', b: '🌙' },
+                { id: 2, a: '🔥', b: '💧' },
+                { id: 3, a: '🐝', b: '🌸' },
+                { id: 4, a: '🔒', b: '🔑' },
+                { id: 5, a: '⚽', b: '🥅' },
+                { id: 6, a: '🍔', b: '🍟' },
+                { id: 7, a: '🎸', b: '🎵' },
+                { id: 8, a: '🐱', b: '🧶' },
+                { id: 9, a: '🌲', b: '🐿️' },
+                { id: 10, a: '🚀', b: '🪐' }
+            ];
+
+            let items = [];
+            parejas.forEach(p => {
+                items.push({ parejaId: p.id, emoji: p.a });
+                items.push({ parejaId: p.id, emoji: p.b });
+            });
+            items.sort(() => Math.random() - 0.5);
+
+            let nodos = [];
+            let radio = 26;
+
+            let rx = 60, ry = 90;
+            let rAncho = canvas.width - 120;
+            let rAlto = canvas.height - 180;
+            let cols = 5, fils = 4;
+            let pX = rAncho / cols;
+            let pY = rAlto / fils;
+
+            let idx = 0;
+            for (let f = 0; f < fils; f++) {
+                for (let c = 0; c < cols; c++) {
+                    if (idx < items.length) {
+                        let item = items[idx];
+                        nodos.push({
+                            parejaId: item.parejaId,
+                            emoji: item.emoji,
+                            x: rx + (c * pX) + (pX / 2),
+                            y: ry + (f * pY) + (pY / 2),
+                            conectado: false
+                        });
+                        idx++;
+                    }
+                }
+            }
+
+            let conexiones = [];
+            let seleccionado = null;
+            let currX = 0, currY = 0;
+            let terminado = false;
+
+            canvas.addEventListener('pointerdown', (e) => {
+                if (terminado) return;
+                let rect = canvas.getBoundingClientRect();
+                let x = e.clientX - rect.left;
+                let y = e.clientY - rect.top;
+
+                for (let n of nodos) {
+                    if (Math.hypot(n.x - x, n.y - y) < 35 && !n.conectado) {
+                        seleccionado = n;
+                        currX = x; currY = y;
+                        break;
+                    }
+                }
+            });
+
+            canvas.addEventListener('pointermove', (e) => {
+                if (!seleccionado || terminado) return;
+                let rect = canvas.getBoundingClientRect();
+                currX = e.clientX - rect.left;
+                currY = e.clientY - rect.top;
+            });
+
+            canvas.addEventListener('pointerup', (e) => {
+                if (!seleccionado || terminado) return;
+                let rect = canvas.getBoundingClientRect();
+                let x = e.clientX - rect.left;
+                let y = e.clientY - rect.top;
+
+                for (let n of nodos) {
+                    if (n !== seleccionado && Math.hypot(n.x - x, n.y - y) < 35 && !n.conectado) {
+                        if (n.parejaId === seleccionado.parejaId) {
+                            seleccionado.conectado = true;
+                            n.conectado = true;
+                            conexiones.push({ desde: seleccionado, hasta: n });
+
+                            if (conexiones.length === 10) {
+                                terminado = true;
+                                setTimeout(() => {
+                                    canvas.style.display = 'none';
+                                    iniciarFase3();
+                                }, 600);
+                            }
+                        }
+                        break;
+                    }
+                }
+                seleccionado = null;
+            });
+
+            function loopFase2() {
+                if (terminado) return;
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                ctx.fillStyle = '#f1c40f';
+                ctx.font = 'bold 1.2rem sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText("asigna las parejas!", canvas.width / 2, 50);
+
+                ctx.strokeStyle = '#27ae60';
+                ctx.lineWidth = 4;
+                for (let c of conexiones) {
+                    ctx.beginPath();
+                    ctx.moveTo(c.desde.x, c.desde.y);
+                    ctx.lineTo(c.hasta.x, c.hasta.y);
+                    ctx.stroke();
+                }
+
+                if (seleccionado) {
+                    ctx.strokeStyle = '#f1c40f';
+                    ctx.lineWidth = 4;
+                    ctx.beginPath();
+                    ctx.moveTo(seleccionado.x, seleccionado.y);
+                    ctx.lineTo(currX, currY);
+                    ctx.stroke();
+                }
+
+                for (let n of nodos) {
+                    ctx.fillStyle = n.conectado ? '#27ae60' : '#34495e';
+                    ctx.beginPath();
+                    ctx.arc(n.x, n.y, radio, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.strokeStyle = n.conectado ? '#2ecc71' : '#bdc3c7';
+                    ctx.lineWidth = 3;
+                    ctx.stroke();
+
+                    ctx.font = '26px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(n.emoji, n.x, n.y);
+                }
+
+                requestAnimationFrame(loopFase2);
+            }
+
+            requestAnimationFrame(loopFase2);
+        }
+
+        // 4. FASE 3: RASCA-RASCA CON IMAGEN HTML DE FONDO Y CANVAS SUPERIOR
+        function iniciarFase3() {
+            document.getElementById('phase-3').style.display = 'block';
+
+            const canvas = document.getElementById('scratch-canvas');
+            const ctx = canvas.getContext('2d');
+
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+
+            // Pintar la capa negra cubriendo toda la pantalla y el texto de pista
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.fillStyle = '#f1c40f';
+            ctx.font = 'bold 1.4rem sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText("el tesoro yace aqui debajo", canvas.width / 2, canvas.height / 2);
+
+            let drawing = false;
+
+            function rascar(x, y) {
+                ctx.globalCompositeOperation = 'destination-out';
+                ctx.beginPath();
+                ctx.arc(x, y, 60, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            canvas.addEventListener('pointerdown', (e) => {
+                drawing = true;
+                let rect = canvas.getBoundingClientRect();
+                rascar(e.clientX - rect.left, e.clientY - rect.top);
+            });
+
+            canvas.addEventListener('pointermove', (e) => {
+                if (!drawing) return;
+                let rect = canvas.getBoundingClientRect();
+                rascar(e.clientX - rect.left, e.clientY - rect.top);
+            });
+
+            canvas.addEventListener('pointerup', () => drawing = false);
+            canvas.addEventListener('pointercancel', () => drawing = false);
+        }
+    </script>
+</body>
+</html>
+

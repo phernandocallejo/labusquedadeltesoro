@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>La Búsqueda del Tesoro - Sala 45</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #2c3e50;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 10px;
+            box-sizing: border-box;
+            text-align: center;
+            touch-action: none;
+            overflow: hidden;
+            position: relative;
+        }
+        .overlay-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(44, 62, 80, 0.98);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            box-sizing: border-box;
+            z-index: 30;
+        }
+        .card {
+            background: white;
+            color: #333;
+            padding: 30px;
+            border-radius: 12px;
+            max-width: 400px;
+            width: 100%;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+        }
+        .card h2 {
+            color: #2c3e50;
+            margin-top: 0;
+        }
+        .card p {
+            font-size: 1.1rem;
+            line-height: 1.5;
+            color: #555;
+        }
+        input[type="text"] {
+            width: 80%;
+            padding: 12px;
+            font-size: 1.1rem;
+            margin-top: 15px;
+            border: 2px solid #ccc;
+            border-radius: 5px;
+            text-align: center;
+            box-sizing: border-box;
+        }
+        button.action-btn {
+            background-color: #e74c3c;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            font-size: 1.1rem;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 15px;
+            font-weight: bold;
+        }
+        button.action-btn:hover {
+            background-color: #c0392b;
+        }
+        #error-msg {
+            color: #e74c3c;
+            font-size: 0.95rem;
+            margin-top: 12px;
+            font-weight: bold;
+            display: none;
+        }
+
+        #gameCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            background: #1a252f;
+        }
+
+        /* Ticket de pedido flotante superior */
+        #ticket-box {
+            position: absolute;
+            top: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #fdfefe;
+            color: #2c3e50;
+            padding: 10px 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+            z-index: 10;
+            max-width: 95%;
+            font-size: 0.85rem;
+            font-weight: bold;
+            text-align: left;
+            pointer-events: none;
+            border-left: 5px solid #e74c3c;
+            box-sizing: border-box;
+        }
+        #ticket-box h4 {
+            margin: 0 0 4px 0;
+            font-size: 0.9rem;
+            color: #c0392b;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Pantalla de Contraseña Inicial -->
+    <div id="password-screen" class="overlay-screen">
+        <div class="card">
+            <h2>Sala 45 🔒</h2>
+            <p>Bienvenido, carahuevo.<br>Introduce la contraseña para continuar:</p>
+            <input type="text" id="pass-input" placeholder="Escribe la clave..." autocomplete="off">
+            <br>
+            <button id="btn-entrar" class="action-btn" type="button">Entrar</button>
+            <div id="error-msg">Contraseña incorrecta, prueba otra vez.</div>
+        </div>
+    </div>
+
+    <!-- Ticket flotante del pedido -->
+    <div id="ticket-box">
+        <h4>🍔 PEDIDO A COMPLETAR:</h4>
+        <div id="pedido-texto">Cargando pedido...</div>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- Pantalla de Victoria Final -->
+    <div id="win-message" class="overlay-screen" style="display: none; background: rgba(44, 62, 80, 0.98);">
+        <div class="card">
+            <h2 style="color: #27ae60;">¡Hamburguesa perfecta! 🎉</h2>
+            <p>¡Has clavado exactamente el pedido del cliente!</p>
+            <p><strong>Pasa a la sala 2.</strong><br>Contraseña: <strong>pepinillos</strong></p>
+            <button type="button" class="action-btn" onclick="location.reload()">Volver a jugar</button>
+        </div>
+    </div>
+
+    <script>
+        const CLAVE_CORRECTA = "mudito";
+        let juegoIniciado = false;
+
+        const passInput = document.getElementById('pass-input');
+        const btnEntrar = document.getElementById('btn-entrar');
+        const errorMsg = document.getElementById('error-msg');
+        const passwordScreen = document.getElementById('password-screen');
+        const pedidoTexto = document.getElementById('pedido-texto');
+
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const INGREDIENTES_DISPONIBLES = ["tomate", "lechuga", "cebolla", "bacon", "pepinillo"];
+        const CARNES = ["cerdo", "ternera"];
+
+        let pedidoActual = [];
+        let hamburguesaConstruida = ["pan"]; 
+        let posicionXJugador = 0;
+        let objetivoXJugador = 0;
+
+        let ingredientesCayendo = [];
+        let temporizadorLluvia = 0;
+
+        function comprobarClave() {
+            let valor = passInput.value.trim();
+            if (valor.toLowerCase() === CLAVE_CORRECTA.toLowerCase()) {
+                passwordScreen.style.display = 'none';
+                arrancarJuego();
+            } else {
+                errorMsg.style.display = 'block';
+                passInput.value = '';
+                passInput.focus();
+            }
+        }
+
+        btnEntrar.addEventListener('click', comprobarClave);
+        passInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') comprobarClave();
+        });
+
+        function generarPedido() {
+            let carneElegida = CARNES[Math.floor(Math.random() * CARNES.length)];
+            let numExtras = Math.floor(Math.random() * 2) + 2; 
+            let extras = [];
+            
+            let pool = [...INGREDIENTES_DISPONIBLES];
+            for (let i = 0; i < numExtras; i++) {
+                let idx = Math.floor(Math.random() * pool.length);
+                extras.push(pool.splice(idx, 1)[0]);
+            }
+
+            pedidoActual = ["pan", carneElegida, ...extras, "pan"];
+            pedidoTexto.innerText = pedidoActual.join(" ➔ ").toUpperCase();
+        }
+
+        function arrancarJuego() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            posicionXJugador = canvas.width / 2;
+            objetivoXJugador = canvas.width / 2;
+
+            generarPedido();
+            hamburguesaConstruida = ["pan"]; 
+            ingredientesCayendo = [];
+            juegoIniciado = true;
+            requestAnimationFrame(buclePrincipal);
+        }
+
+        function moverJugador(clientX) {
+            let rect = canvas.getBoundingClientRect();
+            objetivoXJugador = clientX - rect.left;
+            if (objetivoXJugador < 90) objetivoXJugador = 90;
+            if (objetivoXJugador > canvas.width - 90) objetivoXJugador = canvas.width - 90;
+        }
+
+        canvas.addEventListener('pointermove', (e) => {
+            if (juegoIniciado) moverJugador(e.clientX);
+        });
+        canvas.addEventListener('pointerdown', (e) => {
+            if (juegoIniciado) moverJugador(e.clientX);
+        });
+
+        function crearIngredienteCayendo() {
+            let tipo;
+            let rand = Math.random();
+            if (rand < 0.25) {
+                tipo = CARNES[Math.floor(Math.random() * CARNES.length)];
+            } else if (rand < 0.8) {
+                tipo = INGREDIENTES_DISPONIBLES[Math.floor(Math.random() * INGREDIENTES_DISPONIBLES.length)];
+            } else {
+                tipo = "pan";
+            }
+
+            ingredientesCayendo.push({
+                x: Math.random() * (canvas.width - 180) + 90,
+                y: -50,
+                tipo: tipo,
+                velocidadY: 2.5 // Velocidad constante y controlada
+            });
+        }
+
+        function reiniciarNivel() {
+            hamburguesaConstruida = ["pan"];
+            ingredientesCayendo = [];
+        }
+
+        function verificarHamburguesa() {
+            if (hamburguesaConstruida.length !== pedidoActual.length) return false;
+            for (let i = 0; i < pedidoActual.length; i++) {
+                if (hamburguesaConstruida[i] !== pedidoActual[i]) return false;
+            }
+            return true;
+        }
+
+        function obtenerColorIngrediente(tipo) {
+            switch(tipo) {
+                case 'pan': return '#d35400';
+                case 'cerdo': return '#e67e22';
+                case 'ternera': return '#78281f';
+                case 'tomate': return '#e74c3c';
+                case 'lechuga': return '#27ae60';
+                case 'cebolla': return '#8e44ad';
+                case 'bacon': return '#c0392b';
+                case 'pepinillo': return '#16a085';
+                default: return '#7f8c8d';
+            }
+        }
+
+        function buclePrincipal() {
+            if (!juegoIniciado) return;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Interpolación suave del movimiento (elimina tirones y aceleraciones extrañas)
+            posicionXJugador += (objetivoXJugador - posicionXJugador) * 0.25;
+
+            // Generar lluvia de ingredientes con temporizador estable
+            temporizadorLluvia++;
+            if (temporizadorLluvia > 75) {
+                crearIngredienteCayendo();
+                temporizadorLluvia = 0;
+            }
+
+            let alturaTorre = hamburguesaConstruida.length * 30;
+            let baseY = canvas.height - 120 - alturaTorre;
+
+            // 1. Actualizar y dibujar ingredientes cayendo (más grandes y claros)
+            for (let i = ingredientesCayendo.length - 1; i >= 0; i--) {
+                let ing = ingredientesCayendo[i];
+                ing.y += ing.velocidadY;
+
+                ctx.fillStyle = obtenerColorIngrediente(ing.tipo);
+                ctx.beginPath();
+                ctx.roundRect(ing.x - 70, ing.y - 16, 140, 32, 16);
+                ctx.fill();
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 14px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(ing.tipo.toUpperCase(), ing.x, ing.y);
+
+                // Colisión con la hamburguesa
+                if (
+                    ing.y + 16 >= baseY &&
+                    ing.y - 16 <= baseY + alturaTorre &&
+                    ing.x >= posicionXJugador - 80 &&
+                    ing.x <= posicionXJugador + 80
+                ) {
+                    hamburguesaConstruida.push(ing.tipo);
+                    ingredientesCayendo.splice(i, 1);
+
+                    // Si atrapa el pan final, se comprueba el pedido
+                    if (ing.tipo === "pan") {
+                        if (verificarHamburguesa()) {
+                            juegoIniciado = false;
+                            document.getElementById('win-message').style.display = 'flex';
+                            return;
+                        } else {
+                            reiniciarNivel(); 
+                        }
+                    }
+                } 
+                else if (ing.y > canvas.height + 40) {
+                    ingredientesCayendo.splice(i, 1);
+                }
+            }
+
+            // 2. Dibujar la torre de hamburguesa grande y elevada en la parte inferior
+            for (let i = 0; i < hamburguesaConstruida.length; i++) {
+                let tipoIng = hamburguesaConstruida[i];
+                let yPos = canvas.height - 120 - (i * 30);
+
+                ctx.fillStyle = obtenerColorIngrediente(tipoIng);
+                ctx.beginPath();
+                ctx.roundRect(posicionXJugador - 80, yPos - 14, 160, 28, 14);
+                ctx.fill();
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 13px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(tipoIng.toUpperCase(), posicionXJugador, yPos);
+            }
+
+            requestAnimationFrame(buclePrincipal);
+        }
+    </script>
+</body>
+</html>
+

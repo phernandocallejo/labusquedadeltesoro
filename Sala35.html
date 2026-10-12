@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>La Búsqueda del Tesoro - Sala 35</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #2c3e50;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 10px;
+            box-sizing: border-box;
+            text-align: center;
+            touch-action: manipulation;
+            overflow: hidden;
+            position: relative;
+        }
+        h1 {
+            font-size: 1.2rem;
+            margin: 2px 0;
+            z-index: 2;
+        }
+        p.instructions {
+            font-size: 0.85rem;
+            color: #bdc3c7;
+            margin: 0 0 10px 0;
+            max-width: 340px;
+            z-index: 2;
+        }
+        .overlay-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(44, 62, 80, 0.98);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            box-sizing: border-box;
+            z-index: 20;
+        }
+        .card {
+            background: white;
+            color: #333;
+            padding: 30px;
+            border-radius: 12px;
+            max-width: 400px;
+            width: 100%;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+        }
+        .card h2 {
+            color: #2c3e50;
+            margin-top: 0;
+        }
+        .card p {
+            font-size: 1.1rem;
+            line-height: 1.5;
+            color: #555;
+        }
+        input[type="text"] {
+            width: 80%;
+            padding: 12px;
+            font-size: 1.1rem;
+            margin-top: 15px;
+            border: 2px solid #ccc;
+            border-radius: 5px;
+            text-align: center;
+            box-sizing: border-box;
+        }
+        button.action-btn {
+            background-color: #e74c3c;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            font-size: 1.1rem;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 15px;
+            font-weight: bold;
+        }
+        button.action-btn:hover {
+            background-color: #c0392b;
+        }
+        #error-msg {
+            color: #e74c3c;
+            font-size: 0.95rem;
+            margin-top: 12px;
+            font-weight: bold;
+            display: none;
+        }
+        
+        /* Contenedor de la escena de la habitación */
+        #room-container {
+            position: relative;
+            width: 340px;
+            height: 380px;
+            background: #34495e;
+            border: 4px solid #f1c40f;
+            border-radius: 12px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+            box-sizing: border-box;
+            overflow: hidden;
+            z-index: 2;
+        }
+
+        /* Reloj de pared interactivo en la misma escena */
+        #wall-clock {
+            position: absolute;
+            top: 20px;
+            left: 125px;
+            width: 90px;
+            height: 90px;
+            background: #ecf0f1;
+            border: 5px solid #7f8c8d;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+        .clock-hand {
+            position: absolute;
+            bottom: 50%;
+            left: 50%;
+            transform-origin: bottom center;
+            background: #2c3e50;
+            border-radius: 2px;
+            pointer-events: none;
+        }
+        #hour-hand {
+            width: 4px;
+            height: 25px;
+            margin-left: -2px;
+            background: #2c3e50;
+        }
+        #minute-hand {
+            width: 3px;
+            height: 35px;
+            margin-left: -1.5px;
+            background: #e74c3c;
+        }
+        .clock-center {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 8px;
+            height: 8px;
+            background: #2c3e50;
+            border-radius: 50%;
+            margin: -4px 0 0 -4px;
+        }
+
+        /* Lámpara de escritorio corregida y perfectamente alineada */
+        #desk-lamp {
+            position: absolute;
+            top: 130px;
+            left: 30px;
+            width: 40px;
+            height: 90px;
+            cursor: pointer;
+            z-index: 3;
+        }
+        .lamp-head {
+            width: 45px;
+            height: 22px;
+            background: #e67e22;
+            border-radius: 20px 20px 5px 5px;
+        }
+        .lamp-stand {
+            width: 6px;
+            height: 60px;
+            background: #bdc3c7;
+            margin: 0 auto;
+        }
+        .lamp-base {
+            width: 30px;
+            height: 8px;
+            background: #7f8c8d;
+            border-radius: 4px;
+            margin: 0 auto;
+        }
+        #lamp-light {
+            position: absolute;
+            top: 152px;
+            left: 12px;
+            width: 100px;
+            height: 110px;
+            background: rgba(241, 196, 15, 0.22);
+            clip-path: polygon(20% 0%, 80% 0%, 100% 100%, 0% 100%);
+            pointer-events: none;
+            transition: opacity 0.2s;
+            z-index: 2;
+        }
+
+        /* Ordenador */
+        #computer {
+            position: absolute;
+            top: 130px;
+            left: 115px;
+            width: 100px;
+            height: 80px;
+            cursor: pointer;
+            text-align: center;
+        }
+        .pc-monitor {
+            width: 100px;
+            height: 65px;
+            background: #111;
+            border: 4px solid #7f8c8d;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            color: #2ecc71;
+            font-family: monospace;
+            box-sizing: border-box;
+            transition: background 0.3s, color 0.3s;
+        }
+        .pc-stand {
+            width: 20px;
+            height: 12px;
+            background: #7f8c8d;
+            margin: 0 auto;
+        }
+        .pc-base {
+            width: 50px;
+            height: 5px;
+            background: #7f8c8d;
+            border-radius: 2px;
+            margin: 0 auto;
+        }
+
+        /* Marco de fotos digital interactivo (reemplaza al libro feo) */
+        #photo-frame {
+            position: absolute;
+            top: 140px;
+            right: 35px;
+            width: 55px;
+            height: 65px;
+            background: #8e44ad;
+            border: 4px solid #512e5f;
+            border-radius: 4px;
+            cursor: pointer;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            transition: transform 0.2s;
+        }
+
+        /* Escritorio (mueble) */
+        #desk-surface {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 140px;
+            background: #d35400;
+            border-top: 6px solid #a04000;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Pantalla de Contraseña Inicial -->
+    <div id="password-screen" class="overlay-screen">
+        <div class="card">
+            <h2>Sala 35 🔒</h2>
+            <p>Bienvenido, carahuevo.<br>Introduce la contraseña para continuar:</p>
+            <input type="text" id="pass-input" placeholder="Escribe la clave..." autocomplete="off">
+            <br>
+            <button id="btn-entrar" class="action-btn" type="button">Entrar</button>
+            <div id="error-msg">Contraseña incorrecta, prueba otra vez.</div>
+        </div>
+    </div>
+
+    <h1>¡Desafío número 35! 🕵️‍♂️</h1>
+    <p class="instructions">Algo no cuadra en la habitación...</p>
+
+    <!-- Escena de la Habitación -->
+    <div id="room-container">
+        <!-- Reloj de pared (Toca para girar las manecillas en la misma escena) -->
+        <div id="wall-clock" onclick="tocarReloj()" title="Ajustar hora del reloj">
+            <div id="hour-hand" class="clock-hand"></div>
+            <div id="minute-hand" class="clock-hand"></div>
+            <div class="clock-center"></div>
+        </div>
+
+        <!-- Lámpara alineada -->
+        <div id="desk-lamp" onclick="toggleLampara()" title="Encender/Apagar lámpara">
+            <div class="lamp-head"></div>
+            <div class="lamp-stand"></div>
+            <div class="lamp-base"></div>
+        </div>
+        <div id="lamp-light"></div>
+
+        <!-- Ordenador -->
+        <div id="computer" onclick="togglePantallaPC()" title="Cambiar pantalla">
+            <div class="pc-monitor" id="monitor-screen">SYS_OK</div>
+            <div class="pc-stand"></div>
+            <div class="pc-base"></div>
+        </div>
+
+        <!-- Marco de fotos digital -->
+        <div id="photo-frame" onclick="toggleFoto()" title="Cambiar imagen">
+            <span id="photo-icon">🖼️</span>
+        </div>
+
+        <!-- Superficie de la mesa -->
+        <div id="desk-surface"></div>
+    </div>
+
+    <!-- Pantalla de Victoria Final -->
+    <div id="win-message" class="overlay-screen" style="display: none;">
+        <div class="card">
+            <h2 style="color: #27ae60;">¡Hora correcta! 🎉</h2>
+            <p>¡Has descubierto el elemento discordante de la habitación!</p>
+            <p><strong>Pasa a la sala 8.</strong><br>Contraseña: <strong>hora punta</strong></p>
+            <button type="button" class="action-btn" onclick="reiniciarJuego()">Volver a jugar</button>
+        </div>
+    </div>
+
+    <script>
+        const CONTRASEÑA_CORRECTA = "marcianitos"; 
+
+        const passInput = document.getElementById('pass-input');
+        const btnEntrar = document.getElementById('btn-entrar');
+        const errorMsg = document.getElementById('error-msg');
+        const passwordScreen = document.getElementById('password-screen');
+
+        function comprobarClave() {
+            let valorEscrito = passInput.value.trim();
+            if (valorEscrito.toLowerCase() === CONTRASEÑA_CORRECTA.toLowerCase()) {
+                passwordScreen.style.display = 'none';
+            } else {
+                errorMsg.style.display = 'block';
+                passInput.value = '';
+                passInput.focus();
+            }
+        }
+
+        btnEntrar.addEventListener('click', comprobarClave);
+        passInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                comprobarClave();
+            }
+        });
+
+        // Obtener la hora actual en tiempo real del sistema
+        const ahora = new Date();
+        let horaRealHoras = ahora.getHours() % 12;
+        let horaRealMinutos = ahora.getMinutes();
+
+        // Reloj inicia desajustado (ej: las 3:10)
+        let relojHoras = 3;
+        let relojMinutos = 10;
+
+        actualizarManecillasVisuales();
+
+        function actualizarManecillasVisuales() {
+            let anguloMinutos = relojMinutos * 6; 
+            let anguloHoras = (relojHoras % 12) * 30 + (relojMinutos / 2); 
+
+            document.getElementById('minute-hand').style.transform = `rotate(${anguloMinutos}deg)`;
+            document.getElementById('hour-hand').style.transform = `rotate(${anguloHoras}deg)`;
+        }
+
+        // Tocar el reloj avanza 15 minutos directamente en la pared
+        function tocarReloj() {
+            relojMinutos += 15;
+            if (relojMinutos >= 60) {
+                relojMinutos -= 60;
+                relojHoras = (relojHoras + 1) % 12;
+            }
+            actualizarManecillasVisuales();
+            verificarHora();
+        }
+
+        // Interacciones decorativas de la habitación
+        let lampOn = true;
+        function toggleLampara() {
+            lampOn = !lampOn;
+            document.getElementById('lamp-light').style.opacity = lampOn ? '1' : '0';
+        }
+
+        let pcEstado = 0;
+        const pcColores = ['#2ecc71', '#3498db', '#e74c3c', '#f1c40f'];
+        const pcTextos = ['SYS_OK', 'ACCESS', 'ERROR 404', 'LOCKED'];
+        function togglePantallaPC() {
+            pcEstado = (pcEstado + 1) % pcColores.length;
+            let monitor = document.getElementById('monitor-screen');
+            monitor.style.color = pcColores[pcEstado];
+            monitor.innerText = pcTextos[pcEstado];
+        }
+
+        let fotoIndex = 0;
+        const iconosFotos = ['🖼️', '📸', '🎨', '⭐'];
+        function toggleFoto() {
+            fotoIndex = (fotoIndex + 1) % iconosFotos.length;
+            document.getElementById('photo-icon').innerText = iconosFotos[fotoIndex];
+        }
+
+        function verificarHora() {
+            let totalMinutosReloj = relojHoras * 60 + relojMinutos;
+            let totalMinutosReal = horaRealHoras * 60 + horaRealMinutos;
+            
+            let diferencia = Math.abs(totalMinutosReloj - totalMinutosReal);
+            if (diferencia > 720) diferencia = 1440 - diferencia;
+
+            if (diferencia <= 15) { // Tolerancia de 15 minutos respecto a la hora real
+                setTimeout(() => {
+                    document.getElementById('win-message').style.display = 'flex';
+                }, 350);
+            }
+        }
+
+        function reiniciarJuego() {
+            document.getElementById('win-message').style.display = 'none';
+            relojHoras = 3;
+            relojMinutos = 10;
+            actualizarManecillasVisuales();
+        }
+    </script>
+</body>
+</html>
+

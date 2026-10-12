@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>La Búsqueda del Tesoro - Sala 37</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #2c3e50;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 10px;
+            box-sizing: border-box;
+            text-align: center;
+            overflow: hidden;
+            position: relative;
+        }
+        .overlay-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(44, 62, 80, 0.98);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            box-sizing: border-box;
+            z-index: 30;
+        }
+        .card {
+            background: white;
+            color: #333;
+            padding: 30px;
+            border-radius: 12px;
+            max-width: 400px;
+            width: 100%;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+        }
+        .card h2 {
+            color: #2c3e50;
+            margin-top: 0;
+        }
+        .card p {
+            font-size: 1.1rem;
+            line-height: 1.5;
+            color: #555;
+        }
+        input[type="text"] {
+            width: 80%;
+            padding: 12px;
+            font-size: 1.1rem;
+            margin-top: 15px;
+            border: 2px solid #ccc;
+            border-radius: 5px;
+            text-align: center;
+            box-sizing: border-box;
+        }
+        button.action-btn {
+            background-color: #e74c3c;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            font-size: 1.1rem;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 15px;
+            font-weight: bold;
+        }
+        button.action-btn:hover {
+            background-color: #c0392b;
+        }
+        #error-msg {
+            color: #e74c3c;
+            font-size: 0.95rem;
+            margin-top: 12px;
+            font-weight: bold;
+            display: none;
+        }
+
+        #scoreboard {
+            position: absolute;
+            top: 25px;
+            z-index: 10;
+            font-size: 1.4rem;
+            font-weight: bold;
+            color: #f1c40f;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+            pointer-events: none;
+        }
+
+        /* Área de juego interactiva */
+        #game-area {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #1a252f;
+            z-index: 1;
+        }
+
+        /* Botón dinámico nativo de HTML para evitar problemas de coordenadas */
+        #target-btn {
+            position: absolute;
+            width: 95px;
+            height: 95px;
+            border-radius: 50%;
+            background-color: #e74c3c;
+            color: white;
+            border: 4px solid #ffffff;
+            font-weight: bold;
+            font-size: 0.95rem;
+            cursor: pointer;
+            box-shadow: 0 6px 15px rgba(0,0,0,0.4);
+            z-index: 5;
+            display: none;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        #target-btn:active {
+            transform: scale(0.92);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Pantalla de Contraseña Inicial -->
+    <div id="password-screen" class="overlay-screen">
+        <div class="card">
+            <h2>Sala 37 🔒</h2>
+            <p>Bienvenido, carahuevo.<br>Introduce la contraseña para continuar:</p>
+            <input type="text" id="pass-input" placeholder="Escribe la clave..." autocomplete="off">
+            <br>
+            <button id="btn-entrar" class="action-btn" type="button">Entrar</button>
+            <div id="error-msg">Contraseña incorrecta, prueba otra vez.</div>
+        </div>
+    </div>
+
+    <div id="scoreboard">Aciertos: <span id="contador">0</span> / 25</div>
+
+    <!-- Área de juego y Botón nativo -->
+    <div id="game-area" onclick="registrarFallo(event)">
+        <button id="target-btn" onclick="registrarAcierto(event)">¡PÚLSAME!</button>
+    </div>
+
+    <!-- Pantalla de Victoria Final -->
+    <div id="win-message" class="overlay-screen" style="display: none; background: rgba(44, 62, 80, 0.98);">
+        <div class="card">
+            <h2 style="color: #27ae60;">¡Reto superado! 🎉</h2>
+            <p>¡Has conseguido pulsar el botón 25 veces!</p>
+            <p><strong>Pasa a la sala 3.</strong><br>Contraseña: <strong>tqtc</strong></p>
+            <button type="button" class="action-btn" onclick="location.reload()">Volver a jugar</button>
+        </div>
+    </div>
+
+    <script>
+        const CLAVE_CORRECTA = "milan";
+        const TOTAL_OBJETIVO = 25;
+        let aciertos = 0;
+
+        const passInput = document.getElementById('pass-input');
+        const btnEntrar = document.getElementById('btn-entrar');
+        const errorMsg = document.getElementById('error-msg');
+        const passwordScreen = document.getElementById('password-screen');
+        const contadorSpan = document.getElementById('contador');
+        const targetBtn = document.getElementById('target-btn');
+
+        function comprobarClave() {
+            let valor = passInput.value.trim();
+            if (valor.toLowerCase() === CLAVE_CORRECTA.toLowerCase()) {
+                passwordScreen.style.display = 'none';
+                arrancarJuego();
+            } else {
+                errorMsg.style.display = 'block';
+                passInput.value = '';
+                passInput.focus();
+            }
+        }
+
+        btnEntrar.addEventListener('click', comprobarClave);
+        passInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') comprobarClave();
+        });
+
+        function arrancarJuego() {
+            aciertos = 0;
+            contadorSpan.innerText = aciertos;
+            targetBtn.style.display = 'block';
+            moverBoton();
+        }
+
+        function moverBoton() {
+            let maxX = window.innerWidth - 120;
+            let maxY = window.innerHeight - 120;
+            let minX = 20;
+            let minY = 80; // Dejar espacio para el marcador superior
+
+            let randomX = Math.floor(Math.random() * (maxX - minX)) + minX;
+            let randomY = Math.floor(Math.random() * (maxY - minY)) + minY;
+
+            targetBtn.style.left = randomX + 'px';
+            targetBtn.style.top = randomY + 'px';
+        }
+
+        function registrarAcierto(event) {
+            // Evitar que el clic del botón burbujee hacia el fondo y cuente como fallo
+            event.stopPropagation();
+
+            aciertos++;
+            contadorSpan.innerText = aciertos;
+
+            if (aciertos >= TOTAL_OBJETIVO) {
+                targetBtn.style.display = 'none';
+                document.getElementById('win-message').style.display = 'flex';
+                return;
+            }
+
+            // Mover posición y opcionalmente hacer 1 movimiento extra (truco)
+            moverBoton();
+            let hacerTruco = Math.random() < 0.5; // 50% de probabilidad
+            if (hacerTruco) {
+                setTimeout(() => {
+                    moverBoton();
+                }, 250);
+            }
+        }
+
+        function registrarFallo(event) {
+            // Si el clic ocurre directamente en el fondo del área de juego
+            aciertos = 0;
+            contadorSpan.innerText = aciertos;
+            moverBoton();
+        }
+    </script>
+</body>
+</html>
+

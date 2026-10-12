@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>La Búsqueda del Tesoro - Sala 47</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #2c3e50;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 10px;
+            box-sizing: border-box;
+            text-align: center;
+            touch-action: manipulation;
+        }
+        h1 {
+            font-size: 1.3rem;
+            margin-bottom: 2px;
+        }
+        p.instructions {
+            font-size: 0.85rem;
+            color: #bdc3c7;
+            margin-bottom: 15px;
+            max-width: 340px;
+            line-height: 1.3;
+        }
+        .overlay-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(44, 62, 80, 0.98);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            box-sizing: border-box;
+            z-index: 10;
+        }
+        .card {
+            background: white;
+            color: #333;
+            padding: 30px;
+            border-radius: 12px;
+            max-width: 400px;
+            width: 100%;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+        }
+        .card h2 {
+            color: #2c3e50;
+            margin-top: 0;
+        }
+        .card p {
+            font-size: 1.1rem;
+            line-height: 1.5;
+            color: #555;
+        }
+        input[type="text"] {
+            width: 80%;
+            padding: 12px;
+            font-size: 1.1rem;
+            margin-top: 15px;
+            border: 2px solid #ccc;
+            border-radius: 5px;
+            text-align: center;
+            box-sizing: border-box;
+        }
+        button.action-btn {
+            background-color: #e74c3c;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            font-size: 1.1rem;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 15px;
+            font-weight: bold;
+        }
+        button.action-btn:hover {
+            background-color: #c0392b;
+        }
+        #error-msg {
+            color: #e74c3c;
+            font-size: 0.95rem;
+            margin-top: 12px;
+            font-weight: bold;
+            display: none;
+        }
+        
+        /* Contenedor del Juego de Parejas */
+        #game-container {
+            background: #34495e;
+            border: 4px solid #f1c40f;
+            border-radius: 12px;
+            padding: 15px;
+            width: 330px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+        }
+        .match-columns {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            gap: 15px;
+        }
+        .column {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            width: 50%;
+        }
+        .match-item {
+            background-color: #2980b9;
+            border: 2px solid #3498db;
+            color: white;
+            padding: 10px 6px;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: bold;
+            cursor: pointer;
+            user-select: none;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 38px;
+            box-sizing: border-box;
+        }
+        .match-item.selected {
+            background-color: #f39c12;
+            border-color: #e67e22;
+            transform: scale(0.97);
+        }
+        .match-item.error {
+            background-color: #c0392b;
+            border-color: #e74c3c;
+        }
+        .match-item.matched {
+            background-color: #27ae60;
+            border-color: #2ecc71;
+            opacity: 0.7;
+            cursor: default;
+        }
+        #match-status {
+            font-size: 0.95rem;
+            font-weight: bold;
+            color: #f1c40f;
+            margin: 0;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Pantalla de Contraseña Inicial -->
+    <div id="password-screen" class="overlay-screen">
+        <div class="card">
+            <h2>Sala 47 🔒</h2>
+            <p>Bienvenido, carahuevo.<br>Introduce la contraseña para continuar:</p>
+            <input type="text" id="pass-input" placeholder="Escribe la clave..." autocomplete="off">
+            <br>
+            <button id="btn-entrar" class="action-btn" type="button">Entrar</button>
+            <div id="error-msg">Contraseña incorrecta, prueba otra vez.</div>
+        </div>
+    </div>
+
+    <h1>¡Desafío número 47! ⚗️</h1>
+    <p class="instructions">
+        Relaciona las 5 parejas de elementos químicos. <strong>¡Si fallas una sola vez, se reinicia el juego!</strong>
+    </p>
+
+    <!-- Contenedor del Juego -->
+    <div id="game-container">
+        <p id="match-status">Parejas unidas: <span id="count">0</span> / 5</p>
+        <div class="match-columns">
+            <div class="column" id="col-symbols">
+                <!-- Símbolos (Izquierda) -->
+            </div>
+            <div class="column" id="col-names">
+                <!-- Nombres (Derecha) -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Pantalla de Victoria Final -->
+    <div id="win-message" class="overlay-screen" style="display: none;">
+        <div class="card">
+            <h2 style="color: #27ae60;">¡Tabla completada! 🎉</h2>
+            <p>¡Has enlazado todas las parejas sin un solo error!</p>
+            <p><strong>Pasa a la sala 7.</strong><br>Contraseña: <strong>Curie</strong></p>
+            <button type="button" class="action-btn" onclick="reiniciarJuego()">Volver a jugar</button>
+        </div>
+    </div>
+
+    <script>
+        const CONTRASEÑA_CORRECTA = "DonSimon"; 
+
+        const passInput = document.getElementById('pass-input');
+        const btnEntrar = document.getElementById('btn-entrar');
+        const errorMsg = document.getElementById('error-msg');
+        const passwordScreen = document.getElementById('password-screen');
+
+        function comprobarClave() {
+            let valorEscrito = passInput.value.trim();
+            if (valorEscrito.toLowerCase() === CONTRASEÑA_CORRECTA.toLowerCase()) {
+                passwordScreen.style.display = 'none';
+            } else {
+                errorMsg.style.display = 'block';
+                passInput.value = '';
+                passInput.focus();
+            }
+        }
+
+        btnEntrar.addEventListener('click', comprobarClave);
+        passInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                comprobarClave();
+            }
+        });
+
+        // Banco de 25 elementos de la tabla periódica
+        const bancoElementos = [
+            { id: 1, symbol: "H", name: "Hidrógeno" },
+            { id: 2, symbol: "He", name: "Helio" },
+            { id: 3, symbol: "Li", name: "Litio" },
+            { id: 4, symbol: "C", name: "Carbono" },
+            { id: 5, symbol: "N", name: "Nitrógeno" },
+            { id: 6, symbol: "O", name: "Oxígeno" },
+            { id: 7, symbol: "F", name: "Flúor" },
+            { id: 8, symbol: "Ne", name: "Neón" },
+            { id: 9, symbol: "Na", name: "Sodio" },
+            { id: 10, symbol: "Mg", name: "Magnesio" },
+            { id: 11, symbol: "Al", name: "Aluminio" },
+            { id: 12, symbol: "Si", name: "Silicio" },
+            { id: 13, symbol: "P", name: "Fósforo" },
+            { id: 14, symbol: "S", name: "Azufre" },
+            { id: 15, symbol: "Cl", name: "Cloro" },
+            { id: 16, symbol: "K", name: "Potasio" },
+            { id: 17, symbol: "Ca", name: "Calcio" },
+            { id: 18, symbol: "Fe", name: "Hierro" },
+            { id: 19, symbol: "Cu", name: "Cobre" },
+            { id: 20, symbol: "Zn", name: "Cinc" },
+            { id: 21, symbol: "Ag", name: "Plata" },
+            { id: 22, symbol: "Au", name: "Oro" },
+            { id: 23, symbol: "Hg", name: "Mercurio" },
+            { id: 24, symbol: "Pb", name: "Plomo" },
+            { id: 25, symbol: "U", name: "Uranio" }
+        ];
+
+        let elementoSeleccionado = null; 
+        let parejasAcertadas = 0;
+        let parejasPartida = [];
+
+        const colSymbols = document.getElementById('col-symbols');
+        const colNames = document.getElementById('col-names');
+        const countDisplay = document.getElementById('count');
+
+        function iniciarJuego() {
+            colSymbols.innerHTML = '';
+            colNames.innerHTML = '';
+            parejasAcertadas = 0;
+            countDisplay.innerText = parejasAcertadas;
+            elementoSeleccionado = null;
+
+            // Seleccionar 5 elementos aleatorios únicos del banco de 25
+            let bancoMezclado = [...bancoElementos].sort(() => Math.random() - 0.5);
+            parejasPartida = bancoMezclado.slice(0, 5);
+
+            // Barajar columnas izquierda y derecha de forma independiente
+            let simbolosBarajados = [...parejasPartida].sort(() => Math.random() - 0.5);
+            let nombresBarajados = [...parejasPartida].sort(() => Math.random() - 0.5);
+
+            // Renderizar símbolos (Izquierda)
+            simbolosBarajados.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'match-item';
+                div.innerText = item.symbol;
+                div.dataset.id = item.id;
+                div.dataset.type = 'symbol';
+                div.onclick = () => seleccionarElemento(div);
+                colSymbols.appendChild(div);
+            });
+
+            // Renderizar nombres (Derecha)
+            nombresBarajados.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'match-item';
+                div.innerText = item.name;
+                div.dataset.id = item.id;
+                div.dataset.type = 'name';
+                div.onclick = () => seleccionarElemento(div);
+                colNames.appendChild(div);
+            });
+        }
+
+        function seleccionarElemento(div) {
+            if (div.classList.contains('matched')) return;
+
+            if (elementoSeleccionado && elementoSeleccionado.type === div.dataset.type) {
+                elementoSeleccionado.element.classList.remove('selected');
+                elementoSeleccionado = { type: div.dataset.type, id: div.dataset.id, element: div };
+                div.classList.add('selected');
+                return;
+            }
+
+            if (!elementoSeleccionado) {
+                elementoSeleccionado = { type: div.dataset.type, id: div.dataset.id, element: div };
+                div.classList.add('selected');
+            } else {
+                let primerEl = elementoSeleccionado;
+                let segundoEl = { type: div.dataset.type, id: div.dataset.id, element: div };
+
+                if (primerEl.type !== segundoEl.type && primerEl.id === segundoEl.id) {
+                    // ¡Acierto!
+                    primerEl.element.classList.remove('selected');
+                    primerEl.element.classList.add('matched');
+                    segundoEl.element.classList.add('matched');
+
+                    parejasAcertadas++;
+                    countDisplay.innerText = parejasAcertadas;
+                    elementoSeleccionado = null;
+
+                    if (parejasAcertadas === 5) {
+                        setTimeout(() => {
+                            document.getElementById('win-message').style.display = 'flex';
+                        }, 400);
+                    }
+                } else {
+                    // ¡Fallo! Se marca en rojo y se reinicia el tablero por completo
+                    primerEl.element.classList.remove('selected');
+                    primerEl.element.classList.add('error');
+                    segundoEl.element.classList.add('error');
+
+                    setTimeout(() => {
+                        alert("❌ ¡Error en la pareja química! Se reinicia el tablero.");
+                        iniciarJuego();
+                    }, 400);
+                }
+            }
+        }
+
+        function reiniciarJuego() {
+            document.getElementById('win-message').style.display = 'none';
+            iniciarJuego();
+        }
+
+        // Cargar al iniciar
+        iniciarJuego();
+    </script>
+</body>
+</html>
+

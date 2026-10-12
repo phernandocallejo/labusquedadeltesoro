@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>La Búsqueda del Tesoro - Sala 18</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #2c3e50;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 10px;
+            box-sizing: border-box;
+            text-align: center;
+            touch-action: none;
+            overflow: hidden;
+            position: relative;
+        }
+        .overlay-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(44, 62, 80, 0.98);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            box-sizing: border-box;
+            z-index: 30;
+        }
+        .card {
+            background: white;
+            color: #333;
+            padding: 30px;
+            border-radius: 12px;
+            max-width: 400px;
+            width: 100%;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+        }
+        .card h2 {
+            color: #2c3e50;
+            margin-top: 0;
+        }
+        .card p {
+            font-size: 1.1rem;
+            line-height: 1.5;
+            color: #555;
+        }
+        input[type="text"] {
+            width: 80%;
+            padding: 12px;
+            font-size: 1.1rem;
+            margin-top: 15px;
+            border: 2px solid #ccc;
+            border-radius: 5px;
+            text-align: center;
+            box-sizing: border-box;
+        }
+        button.action-btn {
+            background-color: #e74c3c;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            font-size: 1.1rem;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 15px;
+            font-weight: bold;
+        }
+        button.action-btn:hover {
+            background-color: #c0392b;
+        }
+        #error-msg {
+            color: #e74c3c;
+            font-size: 0.95rem;
+            margin-top: 12px;
+            font-weight: bold;
+            display: none;
+        }
+
+        #gameCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            background: #1a252f;
+        }
+
+        #scoreboard {
+            position: absolute;
+            top: 20px;
+            z-index: 10;
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #f1c40f;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            align-items: center;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Pantalla de Contraseña Inicial -->
+    <div id="password-screen" class="overlay-screen">
+        <div class="card">
+            <h2>Sala 18 🔒</h2>
+            <p>Bienvenido, carahuevo.<br>Introduce la contraseña para continuar:</p>
+            <input type="text" id="pass-input" placeholder="Escribe la clave..." autocomplete="off">
+            <br>
+            <button id="btn-entrar" class="action-btn" type="button">Entrar</button>
+            <div id="error-msg">Contraseña incorrecta, prueba otra vez.</div>
+        </div>
+    </div>
+
+    <div id="scoreboard">
+        <span>Recoge las pelotas <span id="color-objetivo-txt" style="color: #3498db;">AZULES</span></span>
+        <span>Vaso lleno: <span id="contador">0</span> / 10</span>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- Pantalla de Victoria Final -->
+    <div id="win-message" class="overlay-screen" style="display: none; background: rgba(44, 62, 80, 0.98);">
+        <div class="card">
+            <h2 style="color: #27ae60;">¡Vaso lleno! 🎉</h2>
+            <p>¡Has recogido todas las pelotas correctas sin equivocarte!</p>
+            <p><strong>Pasa a la sala 41.</strong><br>Contraseña: <strong>pelotudo</strong></p>
+            <button type="button" class="action-btn" onclick="location.reload()">Volver a jugar</button>
+        </div>
+    </div>
+
+    <script>
+        const CLAVE_CORRECTA = "bodorrio";
+        const META_LLENADO = 10;
+        let aciertos = 0;
+        let juegoIniciado = false;
+
+        const passInput = document.getElementById('pass-input');
+        const btnEntrar = document.getElementById('btn-entrar');
+        const errorMsg = document.getElementById('error-msg');
+        const passwordScreen = document.getElementById('password-screen');
+        const contadorSpan = document.getElementById('contador');
+        const colorObjetivoTxt = document.getElementById('color-objetivo-txt');
+
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Color objetivo que hay que recoger ('azul' o 'rojo')
+        let colorObjetivo = 'azul';
+
+        let vaso = {
+            x: 0,
+            y: 0,
+            ancho: 90,
+            alto: 55,
+            color: '#ecf0f1'
+        };
+
+        let pelotas = [];
+        let temporizadorCreacion = 0;
+
+        function comprobarClave() {
+            let valor = passInput.value.trim();
+            if (valor.toLowerCase() === CLAVE_CORRECTA.toLowerCase()) {
+                passwordScreen.style.display = 'none';
+                arrancarJuego();
+            } else {
+                errorMsg.style.display = 'block';
+                passInput.value = '';
+                passInput.focus();
+            }
+        }
+
+        btnEntrar.addEventListener('click', comprobarClave);
+        passInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') comprobarClave();
+        });
+
+        function arrancarJuego() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+
+            vaso.x = canvas.width / 2 - vaso.ancho / 2;
+            vaso.y = canvas.height - 90;
+
+            aciertos = 0;
+            contadorSpan.innerText = aciertos;
+            pelotas = [];
+            
+            // Asignar color objetivo aleatorio al iniciar
+            colorObjetivo = Math.random() < 0.5 ? 'azul' : 'rojo';
+            if (colorObjetivo === 'azul') {
+                colorObjetivoTxt.innerText = "AZULES";
+                colorObjetivoTxt.style.color = "#3498db";
+            } else {
+                colorObjetivoTxt.innerText = "ROJAS";
+                colorObjetivoTxt.style.color = "#e74c3c";
+            }
+
+            juegoIniciado = true;
+            buclePrincipal();
+        }
+
+        // Control del vaso con el dedo o ratón
+        function moverVaso(clientX) {
+            let rect = canvas.getBoundingClientRect();
+            let x = clientX - rect.left;
+            vaso.x = x - vaso.ancho / 2;
+
+            // Limitar dentro de la pantalla
+            if (vaso.x < 10) vaso.x = 10;
+            if (vaso.x > canvas.width - vaso.ancho - 10) vaso.x = canvas.width - vaso.ancho - 10;
+        }
+
+        canvas.addEventListener('pointermove', (e) => {
+            if (juegoIniciado) moverVaso(e.clientX);
+        });
+
+        canvas.addEventListener('pointerdown', (e) => {
+            if (juegoIniciado) moverVaso(e.clientX);
+        });
+
+        function crearPelota() {
+            let esAzul = Math.random() < 0.5;
+            pelotas.push({
+                x: Math.random() * (canvas.width - 60) + 30,
+                y: -30,
+                radio: 18,
+                velocidadY: Math.random() * 2 + 3.5,
+                tipo: esAzul ? 'azul' : 'rojo',
+                colorHex: esAzul ? '#3498db' : '#e74c3c'
+            });
+        }
+
+        function reiniciarNivelPorError() {
+            aciertos = 0;
+            contadorSpan.innerText = aciertos;
+            pelotas = [];
+            // Efecto visual rápido de parpadeo rojo en el canvas o aviso opcional
+        }
+
+        function buclePrincipal() {
+            if (!juegoIniciado) return;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Generar pelotas periódicamente
+            temporizadorCreacion++;
+            if (temporizadorCreacion > 35) {
+                crearPelota();
+                temporizadorCreacion = 0;
+            }
+
+            // 1. Actualizar y dibujar pelotas
+            for (let i = pelotas.length - 1; i >= 0; i--) {
+                let p = pelotas[i];
+                p.y += p.velocidadY;
+
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.radio, 0, Math.PI * 2);
+                ctx.fillStyle = p.colorHex;
+                ctx.fill();
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Comprobar colisión con el vaso (aprox. zona superior abierta del vaso)
+                if (
+                    p.y + p.radio >= vaso.y &&
+                    p.y - p.radio <= vaso.y + 15 &&
+                    p.x >= vaso.x &&
+                    p.x <= vaso.x + vaso.ancho
+                ) {
+                    // ¡Pelota atrapada!
+                    if (p.tipo === colorObjetivo) {
+                        // Acierto
+                        aciertos++;
+                        contadorSpan.innerText = aciertos;
+                        pelotas.splice(i, 1);
+
+                        if (aciertos >= META_LLENADO) {
+                            juegoIniciado = false;
+                            document.getElementById('win-message').style.display = 'flex';
+                            return;
+                        }
+                    } else {
+                        // Error: color equivocado
+                        reiniciarNivelPorError();
+                        pelotas.splice(i, 1);
+                        break;
+                    }
+                } 
+                // Eliminar si cae fuera de la pantalla por abajo
+                else if (p.y > canvas.height + 40) {
+                    pelotas.splice(i, 1);
+                }
+            }
+
+            // 2. Dibujar el vaso en la parte inferior
+            ctx.fillStyle = vaso.color;
+            // Dibujar forma de vaso abierto por arriba
+            ctx.beginPath();
+            ctx.moveTo(vaso.x, vaso.y);
+            ctx.lineTo(vaso.x + 10, vaso.y + vaso.alto);
+            ctx.lineTo(vaso.x + vaso.ancho - 10, vaso.y + vaso.alto);
+            ctx.lineTo(vaso.x + vaso.ancho, vaso.y);
+            ctx.closePath();
+            ctx.fill();
+            ctx.strokeStyle = '#bdc3c7';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+
+            // Relleno parcial del vaso según los aciertos actuales
+            let alturaNivel = (aciertos / META_LLENADO) * (vaso.alto - 10);
+            if (alturaNivel > 0) {
+                ctx.fillStyle = colorObjetivo === 'azul' ? '#3498db' : '#e74c3c';
+                ctx.fillRect(vaso.x + 6, vaso.y + vaso.alto - alturaNivel - 5, vaso.ancho - 12, alturaNivel);
+            }
+
+            requestAnimationFrame(buclePrincipal);
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>La Búsqueda del Tesoro - Sala 49</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1a252f;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            height: 100vh;
+            margin: 0;
+            padding: 5px;
+            box-sizing: border-box;
+            text-align: center;
+            overflow: hidden;
+            touch-action: none;
+            position: relative;
+        }
+        h1 {
+            font-size: 1.1rem;
+            margin: 2px 0;
+            z-index: 2;
+        }
+        #hud {
+            font-size: 0.95rem;
+            color: #f1c40f;
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            max-width: 400px;
+            padding: 0 10px;
+            box-sizing: border-box;
+            z-index: 2;
+            font-weight: bold;
+        }
+        .overlay-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(26, 37, 47, 0.98);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            box-sizing: border-box;
+            z-index: 20;
+        }
+        .card {
+            background: white;
+            color: #333;
+            padding: 30px;
+            border-radius: 12px;
+            max-width: 400px;
+            width: 100%;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+        }
+        .card h2 {
+            color: #2c3e50;
+            margin-top: 0;
+        }
+        .card p {
+            font-size: 1.1rem;
+            line-height: 1.5;
+            color: #555;
+        }
+        input[type="text"] {
+            width: 80%;
+            padding: 12px;
+            font-size: 1.1rem;
+            margin-top: 15px;
+            border: 2px solid #ccc;
+            border-radius: 5px;
+            text-align: center;
+            box-sizing: border-box;
+        }
+        button.action-btn {
+            background-color: #e74c3c;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            font-size: 1.1rem;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 15px;
+            font-weight: bold;
+        }
+        button.action-btn:hover {
+            background-color: #c0392b;
+        }
+        #error-msg {
+            color: #e74c3c;
+            font-size: 0.95rem;
+            margin-top: 12px;
+            font-weight: bold;
+            display: none;
+        }
+        
+        /* Canvas de juego a pantalla completa */
+        #gameCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle, #2ecc71 0%, #145a32 100%);
+            z-index: 1;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Pantalla de Contraseña Inicial -->
+    <div id="password-screen" class="overlay-screen">
+        <div class="card">
+            <h2>Sala 49 🔒</h2>
+            <p>Bienvenido, carahuevo.<br>Introduce la contraseña para continuar:</p>
+            <input type="text" id="pass-input" placeholder="Escribe la clave..." autocomplete="off">
+            <br>
+            <button id="btn-entrar" class="action-btn" type="button">Entrar</button>
+            <div id="error-msg">Contraseña incorrecta, prueba otra vez.</div>
+        </div>
+    </div>
+
+    <!-- Pantalla de Inicio del Minijuego -->
+    <div id="start-screen" class="overlay-screen" style="display: none;">
+        <div class="card">
+            <h2>¡Desafío número 49! 🦋</h2>
+            <p>Arrastra el dedo para mover el <strong>cazamariposas</strong>. ¡Consigue 10 puntos cazando mariposas y esquiva a las abejas (-1 punto)!</p>
+            <button class="action-btn" onclick="comenzarPartida()">▶ Empezar Caza</button>
+        </div>
+    </div>
+
+    <!-- HUD superior durante el juego -->
+    <div id="hud" style="display: none;">
+        <span id="score-display">🦋 Puntos: 0 / 10</span>
+    </div>
+
+    <!-- Lienzo del juego -->
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- Pantalla de Victoria Final -->
+    <div id="win-message" class="overlay-screen" style="display: none;">
+        <div class="card">
+            <h2 style="color: #27ae60;">¡Caza exitosa! 🎉</h2>
+            <p>¡Has conseguido cazar las 10 mariposas requeridas!</p>
+            <p><strong>Pasa a la sala 13.</strong><br>Contraseña: <strong>bicho malo</strong></p>
+            <button type="button" class="action-btn" onclick="reiniciarJuego()">Volver a jugar</button>
+        </div>
+    </div>
+
+    <script>
+        const CONTRASEÑA_CORRECTA = "leche merengada"; 
+
+        const passInput = document.getElementById('pass-input');
+        const btnEntrar = document.getElementById('btn-entrar');
+        const errorMsg = document.getElementById('error-msg');
+        const passwordScreen = document.getElementById('password-screen');
+        const startScreen = document.getElementById('start-screen');
+        const hud = document.getElementById('hud');
+
+        function comprobarClave() {
+            let valorEscrito = passInput.value.trim();
+            if (valorEscrito.toLowerCase() === CONTRASEÑA_CORRECTA.toLowerCase()) {
+                passwordScreen.style.display = 'none';
+                startScreen.style.display = 'flex';
+            } else {
+                errorMsg.style.display = 'block';
+                passInput.value = '';
+                passInput.focus();
+            }
+        }
+
+        btnEntrar.addEventListener('click', comprobarClave);
+        passInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                comprobarClave();
+            }
+        });
+
+        // Configuración del Canvas
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        function ajustarCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', ajustarCanvas);
+        ajustarCanvas();
+
+        let juegoActivo = false;
+        let puntos = 0;
+        let insectos = [];
+        let cazamariposas = { x: window.innerWidth / 2, y: window.innerHeight / 2, radio: 32 };
+
+        function comenzarPartida() {
+            startScreen.style.display = 'none';
+            hud.style.display = 'flex';
+            puntos = 0;
+            insectos = [];
+            actualizarHUD();
+
+            for (let i = 0; i < 11; i++) {
+                crearInsectoEspecifico();
+            }
+
+            juegoActivo = true;
+            loopJuego();
+        }
+
+        function actualizarHUD() {
+            document.getElementById('score-display').innerText = `🦋 Puntos: ${puntos} / 10`;
+        }
+
+        function crearInsectoEspecifico(tipoForzado = null) {
+            // Modificado: Ahora solo hay un 30% de probabilidad de abeja (en vez de 65%)
+            let esAbeja = tipoForzado ? (tipoForzado === 'abeja') : (Math.random() < 0.50);
+            // Modificado: Velocidad de abejas más justa (multiplicador 1.8 en vez de 4.5)
+            let velocidadMultiplicador = esAbeja ? 1.8 : 1.0;
+
+            insectos.push({
+                x: Math.random() * (canvas.width - 60) + 30,
+                y: Math.random() * (canvas.height - 120) + 60,
+                vx: (Math.random() - 0.5) * 3.0 * velocidadMultiplicador,
+                vy: (Math.random() - 0.5) * 3.0 * velocidadMultiplicador,
+                tipo: esAbeja ? 'abeja' : 'mariposa',
+                radio: 20,
+                aleteo: Math.random() * Math.PI
+            });
+        }
+
+        // Control táctil del cazamariposas
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            let touch = e.touches[0];
+            cazamariposas.x = touch.clientX;
+            cazamariposas.y = touch.clientY;
+        }, { passive: false });
+
+        canvas.addEventListener('mousemove', (e) => {
+            cazamariposas.x = e.clientX;
+            cazamariposas.y = e.clientY;
+        });
+
+        function loopJuego() {
+            if (!juegoActivo) return;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            for (let i = insectos.length - 1; i >= 0; i--) {
+                let ins = insectos[i];
+                ins.x += ins.vx;
+                ins.y += ins.vy;
+                ins.aleteo += ins.tipo === 'abeja' ? 0.8 : 0.2;
+
+                if (ins.x - ins.radio < 0 || ins.x + ins.radio > canvas.width) ins.vx = -ins.vx;
+                if (ins.y - ins.radio < 40 || ins.y + ins.radio > canvas.height - 20) ins.vy = -ins.vy;
+
+                // Dibujar Insecto
+                ctx.save();
+                ctx.translate(ins.x, ins.y);
+                if (ins.tipo === 'mariposa') {
+                    ctx.fillStyle = '#f39c12';
+                    ctx.beginPath();
+                    ctx.ellipse(-12, Math.sin(ins.aleteo) * 8, 12, 16, 0.5, 0, Math.PI * 2);
+                    ctx.ellipse(12, Math.sin(ins.aleteo) * 8, 12, 16, -0.5, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.fillStyle = '#2c3e50';
+                    ctx.fillRect(-3, -12, 6, 24);
+                } else {
+                    // Abeja
+                    ctx.fillStyle = '#f1c40f';
+                    ctx.beginPath();
+                    ctx.arc(0, 0, 13, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.strokeStyle = '#000';
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.moveTo(-7, -9); ctx.lineTo(7, -9);
+                    ctx.moveTo(-9, 0); ctx.lineTo(9, 0);
+                    ctx.moveTo(-7, 9); ctx.lineTo(7, 9);
+                    ctx.stroke();
+                }
+                ctx.restore();
+
+                let distX = cazamariposas.x - ins.x;
+                let distY = cazamariposas.y - ins.y;
+                let distancia = Math.sqrt(distX * distX + distY * distY);
+
+                if (distancia < cazamariposas.radio + ins.radio) {
+                    let tipoCapturado = ins.tipo;
+                    
+                    insectos.splice(i, 1);
+
+                    if (tipoCapturado === 'mariposa') {
+                        puntos += 1;
+                        crearInsectoEspecifico('mariposa');
+                    } else {
+                        puntos = Math.max(0, puntos - 1); // Modificado: Resta solo 1 punto por abeja
+                        crearInsectoEspecifico('abeja');
+                    }
+                    actualizarHUD();
+
+                    if (puntos >= 10) {
+                        finalizarVictoria();
+                        return;
+                    }
+                }
+            }
+
+            // Cazamariposas
+            ctx.save();
+            ctx.translate(cazamariposas.x, cazamariposas.y);
+            ctx.strokeStyle = '#ecf0f1';
+            ctx.lineWidth = 4;
+            ctx.fillStyle = 'rgba(236, 240, 241, 0.2)';
+            ctx.beginPath();
+            ctx.arc(0, 0, cazamariposas.radio, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            ctx.strokeStyle = '#d35400';
+            ctx.lineWidth = 6;
+            ctx.beginPath();
+            ctx.moveTo(cazamariposas.radio - 5, cazamariposas.radio - 5);
+            ctx.lineTo(cazamariposas.radio + 25, cazamariposas.radio + 25);
+            ctx.stroke();
+            ctx.restore();
+
+            requestAnimationFrame(loopJuego);
+        }
+
+        function finalizarVictoria() {
+            juegoActivo = false;
+            hud.style.display = 'none';
+            document.getElementById('win-message').style.display = 'flex';
+        }
+
+        function reiniciarJuego() {
+            document.getElementById('win-message').style.display = 'none';
+            startScreen.style.display = 'flex';
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+    </script>
+</body>
+</html>
+

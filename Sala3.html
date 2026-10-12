@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>La Búsqueda del Tesoro - Sala 3</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #2c3e50;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 10px;
+            box-sizing: border-box;
+            text-align: center;
+            touch-action: none;
+            overflow: hidden;
+            position: relative;
+        }
+        .overlay-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(44, 62, 80, 0.98);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            box-sizing: border-box;
+            z-index: 30;
+        }
+        .card {
+            background: white;
+            color: #333;
+            padding: 30px;
+            border-radius: 12px;
+            max-width: 400px;
+            width: 100%;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+        }
+        .card h2 {
+            color: #2c3e50;
+            margin-top: 0;
+        }
+        .card p {
+            font-size: 1.1rem;
+            line-height: 1.5;
+            color: #555;
+        }
+        input[type="text"] {
+            width: 80%;
+            padding: 12px;
+            font-size: 1.1rem;
+            margin-top: 15px;
+            border: 2px solid #ccc;
+            border-radius: 5px;
+            text-align: center;
+            box-sizing: border-box;
+        }
+        button.action-btn {
+            background-color: #e74c3c;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            font-size: 1.1rem;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 15px;
+            font-weight: bold;
+        }
+        button.action-btn:hover {
+            background-color: #c0392b;
+        }
+        #error-msg {
+            color: #e74c3c;
+            font-size: 0.95rem;
+            margin-top: 12px;
+            font-weight: bold;
+            display: none;
+        }
+
+        #gameCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            background: #1a252f;
+        }
+
+        #scoreboard {
+            position: absolute;
+            top: 25px;
+            z-index: 10;
+            font-size: 1.4rem;
+            font-weight: bold;
+            color: #f1c40f;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Pantalla de Contraseña Inicial -->
+    <div id="password-screen" class="overlay-screen">
+        <div class="card">
+            <h2>Sala 3 🔒</h2>
+            <p>Bienvenido, carahuevo.<br>Introduce la contraseña para continuar:</p>
+            <input type="text" id="pass-input" placeholder="Escribe la clave..." autocomplete="off">
+            <br>
+            <button id="btn-entrar" class="action-btn" type="button">Entrar</button>
+            <div id="error-msg">Contraseña incorrecta, prueba otra vez.</div>
+        </div>
+    </div>
+
+    <div id="scoreboard">Aciertos: <span id="contador">0</span> / 3</div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- Pantalla de Victoria Final -->
+    <div id="win-message" class="overlay-screen" style="display: none; background: rgba(44, 62, 80, 0.98);">
+        <div class="card">
+            <h2 style="color: #27ae60;">¡Objetivo cumplido! 🎉</h2>
+            <p>¡Has acertado los 3 disparos con el cañón!</p>
+            <p><strong>Pasa a la sala 29.</strong><br>Contraseña: <strong>duckhunt</strong></p>
+            <button type="button" class="action-btn" onclick="location.reload()">Volver a jugar</button>
+        </div>
+    </div>
+
+    <script>
+        const CLAVE_CORRECTA = "tqtc";
+        const META_ACIERTOS = 3;
+        let aciertos = 0;
+        let juegoIniciado = false;
+
+        const passInput = document.getElementById('pass-input');
+        const btnEntrar = document.getElementById('btn-entrar');
+        const errorMsg = document.getElementById('error-msg');
+        const passwordScreen = document.getElementById('password-screen');
+        const contadorSpan = document.getElementById('contador');
+
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Elementos del juego
+        let objetivo = {
+            x: 0,
+            y: 0,
+            radio: 25,
+            velocidadeX: 3,
+            color: '#e74c3c'
+        };
+
+        let canon = {
+            x: 0,
+            y: 0,
+            angulo: 0
+        };
+
+        let proyectil = null; // { x, y, dx, dy, activo: false }
+
+        function comprobarClave() {
+            let valor = passInput.value.trim();
+            if (valor.toLowerCase() === CLAVE_CORRECTA.toLowerCase()) {
+                passwordScreen.style.display = 'none';
+                arrancarJuego();
+            } else {
+                errorMsg.style.display = 'block';
+                passInput.value = '';
+                passInput.focus();
+            }
+        }
+
+        btnEntrar.addEventListener('click', comprobarClave);
+        passInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') comprobarClave();
+        });
+
+        function arrancarJuego() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            
+            canon.x = canvas.width / 2;
+            canon.y = canvas.height - 40;
+
+            reiniciarObjetivo();
+            aciertos = 0;
+            contadorSpan.innerText = aciertos;
+            juegoIniciado = true;
+            buclePrincipal();
+        }
+
+        function reiniciarObjetivo() {
+            objetivo.y = canvas.height * 0.3; // Altura constante por la parte superior
+            let direccion = Math.random() < 0.5 ? 1 : -1;
+            objetivo.velocidadeX = (Math.random() * 2 + 3) * direccion;
+            objetivo.x = direccion === 1 ? -30 : canvas.width + 30;
+        }
+
+        // Apuntar cañón y disparar al hacer clic o tocar la pantalla
+        function manejarDisparo(clientX, clientY) {
+            if (!juegoIniciado || proyectil) return; // Solo un proyectil a la vez
+
+            let rect = canvas.getBoundingClientRect();
+            let mouseX = clientX - rect.left;
+            let mouseY = clientY - rect.top;
+
+            // Calcular ángulo hacia donde se tocó
+            let dx = mouseX - canon.x;
+            let dy = mouseY - canon.y;
+            canon.angulo = Math.atan2(dy, dx);
+
+            // Limitar ángulo para que no dispare hacia abajo
+            if (canon.angulo > 0) canon.angulo = -Math.PI / 2;
+
+            let velocidadBala = 12;
+            proyectil = {
+                x: canon.x,
+                y: canon.y,
+                dx: Math.cos(canon.angulo) * velocidadBala,
+                dy: Math.sin(canon.angulo) * velocidadBala,
+                activo: true
+            };
+        }
+
+        canvas.addEventListener('pointerdown', (e) => {
+            e.preventDefault();
+            manejarDisparo(e.clientX, e.clientY);
+        });
+
+        function buclePrincipal() {
+            if (!juegoIniciado) return;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 1. Mover y dibujar objetivo
+            objetivo.x += objetivo.velocidadeX;
+            if (objetivo.x > canvas.width + 50 || objetivo.x < -50) {
+                reiniciarObjetivo(); // Reaparece si sale de la pantalla
+            }
+
+            ctx.beginPath();
+            ctx.arc(objetivo.x, objetivo.y, objetivo.radio, 0, Math.PI * 2);
+            ctx.fillStyle = objetivo.color;
+            ctx.fill();
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+
+            // 2. Mover y dibujar proyectil si está activo
+            if (proyectil && proyectil.activo) {
+                proyectil.x += proyectil.dx;
+                proyectil.y += proyectil.dy;
+
+                ctx.beginPath();
+                ctx.arc(proyectil.x, proyectil.y, 8, 0, Math.PI * 2);
+                ctx.fillStyle = '#f1c40f';
+                ctx.fill();
+
+                // Comprobar colisión con el objetivo
+                let distancia = Math.hypot(proyectil.x - objetivo.x, proyectil.y - objetivo.y);
+                if (distancia <= objetivo.radio + 8) {
+                    // ¡Acierto!
+                    aciertos++;
+                    contadorSpan.innerText = aciertos;
+                    proyectil = null;
+
+                    if (aciertos >= META_ACIERTOS) {
+                        juegoIniciado = false;
+                        document.getElementById('win-message').style.display = 'flex';
+                        return;
+                    }
+                    reiniciarObjetivo();
+                } 
+                // Si el proyectil sale por arriba o los lados, se destruye
+                else if (proyectil.y < 0 || proyectil.x < 0 || proyectil.x > canvas.width) {
+                    proyectil = null;
+                }
+            }
+
+            // 3. Dibujar cañón en la base
+            ctx.save();
+            ctx.translate(canon.x, canon.y);
+            ctx.rotate(canon.angulo);
+            ctx.fillStyle = '#3498db';
+            ctx.fillRect(0, -12, 40, 24); // Cañón rectangular
+            ctx.restore();
+
+            // Base circular del cañón
+            ctx.beginPath();
+            ctx.arc(canon.x, canon.y, 22, 0, Math.PI * 2);
+            ctx.fillStyle = '#2980b9';
+            ctx.fill();
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+
+            requestAnimationFrame(buclePrincipal);
+        }
+    </script>
+</body>
+</html>

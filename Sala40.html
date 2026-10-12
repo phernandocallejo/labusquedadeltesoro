@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>La Búsqueda del Tesoro - Sala 40</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #2c3e50;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 10px;
+            box-sizing: border-box;
+            text-align: center;
+            touch-action: none;
+            overflow: hidden;
+            position: relative;
+        }
+        .overlay-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(44, 62, 80, 0.98);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            box-sizing: border-box;
+            z-index: 30;
+        }
+        .card {
+            background: white;
+            color: #333;
+            padding: 30px;
+            border-radius: 12px;
+            max-width: 400px;
+            width: 100%;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+        }
+        .card h2 {
+            color: #2c3e50;
+            margin-top: 0;
+        }
+        .card p {
+            font-size: 1.1rem;
+            line-height: 1.5;
+            color: #555;
+        }
+        input[type="text"] {
+            width: 80%;
+            padding: 12px;
+            font-size: 1.1rem;
+            margin-top: 15px;
+            border: 2px solid #ccc;
+            border-radius: 5px;
+            text-align: center;
+            box-sizing: border-box;
+        }
+        button.action-btn {
+            background-color: #e74c3c;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            font-size: 1.1rem;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 15px;
+            font-weight: bold;
+        }
+        button.action-btn:hover {
+            background-color: #c0392b;
+        }
+        #error-msg {
+            color: #e74c3c;
+            font-size: 0.95rem;
+            margin-top: 12px;
+            font-weight: bold;
+            display: none;
+        }
+        
+        /* Lienzo de juego a pantalla completa */
+        #gameCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            background: #000;
+        }
+
+        /* Joystick virtual */
+        #joystick-base {
+            position: absolute;
+            bottom: 75px;
+            left: 30px;
+            width: 120px;
+            height: 120px;
+            background: rgba(255, 255, 255, 0.15);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            touch-action: none;
+        }
+        #joystick-handle {
+            width: 55px;
+            height: 55px;
+            background: rgba(241, 196, 15, 0.9);
+            border: 2px solid #f1c40f;
+            border-radius: 50%;
+            position: absolute;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4rem;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Pantalla de Contraseña Inicial -->
+    <div id="password-screen" class="overlay-screen">
+        <div class="card">
+            <h2>Sala 40 🔒</h2>
+            <p>Bienvenido, carahuevo.<br>Introduce la contraseña para continuar:</p>
+            <input type="text" id="pass-input" placeholder="Escribe la clave..." autocomplete="off">
+            <br>
+            <button id="btn-entrar" class="action-btn" type="button">Entrar</button>
+            <div id="error-msg">Contraseña incorrecta, prueba otra vez.</div>
+        </div>
+    </div>
+
+    <!-- Lienzo del juego -->
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- Joystick virtual -->
+    <div id="joystick-base" style="display: none;">
+        <div id="joystick-handle">🔦</div>
+    </div>
+
+    <!-- Pantalla de Victoria Final -->
+    <div id="win-message" class="overlay-screen" style="display: none; background: rgba(44, 62, 80, 0.98);">
+        <div class="card">
+            <h2 style="color: #27ae60;">¡Salida encontrada! 🎉</h2>
+            <p>¡Has abierto la puerta con la llave en la oscuridad!</p>
+            <p><strong>Pasa a la sala 30.</strong><br>Contraseña: <strong>pasadizo</strong></p>
+            <button type="button" class="action-btn" onclick="reiniciarJuego()">Volver a jugar</button>
+        </div>
+    </div>
+
+    <script>
+        const CONTRASEÑA_CORRECTA = "pataspeludas"; 
+
+        const passInput = document.getElementById('pass-input');
+        const btnEntrar = document.getElementById('btn-entrar');
+        const errorMsg = document.getElementById('error-msg');
+        const passwordScreen = document.getElementById('password-screen');
+
+        function comprobarClave() {
+            let valorEscrito = passInput.value.trim();
+            if (valorEscrito.toLowerCase() === CONTRASEÑA_CORRECTA.toLowerCase()) {
+                passwordScreen.style.display = 'none';
+                comenzarPartida();
+            } else {
+                errorMsg.style.display = 'block';
+                passInput.value = '';
+                passInput.focus();
+            }
+        }
+
+        btnEntrar.addEventListener('click', comprobarClave);
+        passInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                comprobarClave();
+            }
+        });
+
+        // Configuración del Canvas y del Juego
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let juegoActivo = false;
+        let elementosUbicados = false;
+        
+        let linterna = { x: 0, y: 0, radio: 140, encendida: false };
+        let puerta = { x: 0, y: 0, ancho: 70, alto: 100, abierta: false };
+        let llave = { x: 0, y: 0, radio: 40, recogida: false };
+        let tieneLlave = false;
+
+        const joystickBase = document.getElementById('joystick-base');
+        const joystickHandle = document.getElementById('joystick-handle');
+
+        let joystickActive = false;
+        let joystickCenter = { x: 0, y: 0 };
+        let joystickVector = { x: 0, y: 0 };
+
+        function ajustarCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            if (!elementosUbicados) {
+                ubicarElementos();
+                elementosUbicados = true;
+            }
+        }
+        window.addEventListener('resize', ajustarCanvas);
+
+        function ubicarElementos() {
+            puerta.x = canvas.width * 0.65;
+            puerta.y = canvas.height * 0.15;
+
+            llave.x = canvas.width * 0.25;
+            llave.y = canvas.height * 0.65;
+        }
+
+        function comenzarPartida() {
+            ajustarCanvas();
+            tieneLlave = false;
+            llave.recogida = false;
+            puerta.abierta = false;
+            linterna.x = window.innerWidth / 2;
+            linterna.y = window.innerHeight / 2;
+            linterna.encendida = true; // Empieza encendida para que se vea la linterna y el cono de luz
+            juegoActivo = true;
+            joystickBase.style.display = 'flex';
+            loopJuego();
+        }
+
+        // Tocar la pantalla para interactuar con la llave o la puerta
+        canvas.addEventListener('click', (e) => {
+            if (!juegoActivo || !linterna.encendida) return;
+            let x = e.clientX;
+            let y = e.clientY;
+
+            // 1. Tocar la llave (dentro del cono de luz)
+            if (!llave.recogida) {
+                let distLuzLlave = Math.hypot(linterna.x - llave.x, linterna.y - llave.y);
+                let distClickLlave = Math.hypot(x - llave.x, y - llave.y);
+                if (distLuzLlave <= linterna.radio && distClickLlave < 60) {
+                    tieneLlave = true;
+                    llave.recogida = true;
+                    alert("🔑 ¡Has encontrado la llave!");
+                    return;
+                }
+            }
+
+            // 2. Tocar la puerta (dentro del cono de luz)
+            let distLuzPuerta = Math.hypot(linterna.x - (puerta.x + puerta.ancho/2), linterna.y - (puerta.y + puerta.alto/2));
+            let clickEnPuerta = x >= puerta.x - 20 && x <= puerta.x + puerta.ancho + 20 && y >= puerta.y - 20 && y <= puerta.y + puerta.alto + 20;
+            
+            if (distLuzPuerta <= linterna.radio && clickEnPuerta) {
+                if (tieneLlave) {
+                    puerta.abierta = true;
+                    juegoActivo = false;
+                    joystickBase.style.display = 'none';
+                    setTimeout(finalizarVictoria, 400);
+                } else {
+                    alert("🚪 La puerta está cerrada con llave. ¡Necesitas encontrarla primero!");
+                }
+            }
+        });
+
+        // Configuración del Joystick Virtual (Doble toque para encender/apagar)
+        let ultimoToqueJoystick = 0;
+
+        joystickBase.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            let ahora = Date.now();
+            if (ahora - ultimoToqueJoystick < 300) {
+                linterna.encendida = !linterna.encendida;
+                joystickHandle.style.background = linterna.encendida ? 'rgba(241, 196, 15, 0.9)' : 'rgba(127, 140, 141, 0.9)';
+            }
+            ultimoToqueJoystick = ahora;
+
+            joystickActive = true;
+            let rect = joystickBase.getBoundingClientRect();
+            joystickCenter = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+            actualizarJoystick(e.touches[0].clientX, e.touches[0].clientY);
+        }, { passive: false });
+
+        joystickBase.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            if (joystickActive) {
+                actualizarJoystick(e.touches[0].clientX, e.touches[0].clientY);
+            }
+        }, { passive: false });
+
+        joystickBase.addEventListener('touchend', () => {
+            joystickActive = false;
+            joystickVector = { x: 0, y: 0 };
+            joystickHandle.style.transform = `translate(0px, 0px)`;
+        });
+
+        joystickBase.addEventListener('mousedown', (e) => {
+            let ahora = Date.now();
+            if (ahora - ultimoToqueJoystick < 300) {
+                linterna.encendida = !linterna.encendida;
+                joystickHandle.style.background = linterna.encendida ? 'rgba(241, 196, 15, 0.9)' : 'rgba(127, 140, 141, 0.9)';
+            }
+            ultimoToqueJoystick = ahora;
+
+            joystickActive = true;
+            let rect = joystickBase.getBoundingClientRect();
+            joystickCenter = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+            actualizarJoystick(e.clientX, e.clientY);
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (joystickActive) {
+                actualizarJoystick(e.clientX, e.clientY);
+            }
+        });
+
+        window.addEventListener('mouseup', () => {
+            if (joystickActive) {
+                joystickActive = false;
+                joystickVector = { x: 0, y: 0 };
+                joystickHandle.style.transform = `translate(0px, 0px)`;
+            }
+        });
+
+        function actualizarJoystick(clientX, clientY) {
+            let dx = clientX - joystickCenter.x;
+            let dy = clientY - joystickCenter.y;
+            let distancia = Math.hypot(dx, dy);
+            let radioMax = 35;
+
+            if (distancia > radioMax) {
+                dx = (dx / distancia) * radioMax;
+                dy = (dy / distancia) * radioMax;
+                distancia = radioMax;
+            }
+
+            joystickHandle.style.transform = `translate(${dx}px, ${dy}px)`;
+            joystickVector = { x: dx / radioMax, y: dy / radioMax };
+        }
+
+        function loopJuego() {
+            if (!juegoActivo) return;
+
+            // Mover linterna con joystick
+            if (joystickVector.x !== 0 || joystickVector.y !== 0) {
+                linterna.x += joystickVector.x * 5.0;
+                linterna.y += joystickVector.y * 5.0;
+                linterna.x = Math.max(60, Math.min(canvas.width - 60, linterna.x));
+                linterna.y = Math.max(60, Math.min(canvas.height - 60, linterna.y));
+            }
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 1. CAPA DE OSCURIDAD TOTAL DE FONDO
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 2. SI LA LINTERNA ESTÁ ENCENDIDA, ILUMINAMOS EL HAZ Y LOS OBJETOS
+            if (linterna.encendida) {
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(linterna.x, linterna.y, linterna.radio, 0, Math.PI * 2);
+                ctx.clip();
+
+                let gradienteLuz = ctx.createRadialGradient(linterna.x, linterna.y, 10, linterna.x, linterna.y, linterna.radio);
+                gradienteLuz.addColorStop(0, 'rgba(255, 230, 120, 0.45)');
+                gradienteLuz.addColorStop(0.8, 'rgba(255, 200, 50, 0.25)');
+                gradienteLuz.addColorStop(1, 'rgba(255, 200, 50, 0)');
+                ctx.fillStyle = gradienteLuz;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                // DIBUJAR PUERTA
+                ctx.fillStyle = puerta.abierta ? '#27ae60' : '#8e44ad';
+                ctx.fillRect(puerta.x, puerta.y, puerta.ancho, puerta.alto);
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(puerta.x, puerta.y, puerta.ancho, puerta.alto);
+                ctx.fillStyle = '#fff';
+                ctx.font = '12px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText("🚪 SALIDA", puerta.x + (puerta.ancho/2), puerta.y - 8);
+
+                // DIBUJAR LLAVE
+                if (!llave.recogida) {
+                    ctx.save();
+                    ctx.translate(llave.x, llave.y);
+                    ctx.font = '32px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText("🔑", 0, 0);
+                    ctx.restore();
+                }
+
+                ctx.restore();
+            }
+
+            // 3. CAPA DE OSCURIDAD GENERAL SOBRE EL RESTO
+            ctx.save();
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.96)';
+            ctx.beginPath();
+            ctx.rect(0, 0, canvas.width, canvas.height);
+            if (linterna.encendida) {
+                ctx.arc(linterna.x, linterna.y, linterna.radio, 0, Math.PI * 2, true);
+            }
+            ctx.fill('evenodd');
+            ctx.restore();
+
+            // 4. DIBUJAR EL OBJETO LINTERNA (🔦) EN EL PUNTO ACTUAL
+            ctx.save();
+            ctx.font = '42px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText("🔦", linterna.x, linterna.y);
+            ctx.restore();
+
+            // 5. TEXTOS FIJOS SUPERIORES E INFERIORES
+            ctx.fillStyle = '#f1c40f';
+            ctx.font = 'bold 13px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText("💡 Doble toque en el joystick 🔦 para encender/apagar", canvas.width / 2, 30);
+
+            ctx.fillStyle = tieneLlave ? '#2ecc71' : '#e74c3c';
+            ctx.font = '13px sans-serif';
+            ctx.fillText(tieneLlave ? "Inventario: 🔑 Llave dorada" : "Inventario: Vacío", canvas.width / 2, canvas.height - 20);
+
+            requestAnimationFrame(loopJuego);
+        }
+
+        function finalizarVictoria() {
+            document.getElementById('win-message').style.display = 'flex';
+        }
+
+        function reiniciarJuego() {
+            document.getElementById('win-message').style.display = 'none';
+            elementosUbicados = false;
+            ubicarElementos();
+            comenzarPartida();
+        }
+    </script>
+</body>
+</html>
+
